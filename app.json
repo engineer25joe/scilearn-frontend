@@ -7,34 +7,17 @@
     "icon": "./assets/images/icon.png",
     "scheme": "scilearn",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.engineer25joe.scilearn"
-    },
-    "splash": {
-      "image": "./assets/images/icon.png",
-      "backgroundColor": "#020c06",
-      "resizeMode": "contain"
-    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.engineer25joe.scilearn"
     },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/icon.png"
-    },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "react-native-webview"
     ],
-    "experiments": {
-      "typedRoutes": true
-    },
     "extra": {
       "router": {},
       "eas": {
