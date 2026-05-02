@@ -16,7 +16,6 @@
     },
     "plugins": [
       "expo-router",
-      "react-native-webview"
     ],
     "extra": {
       "router": {},
