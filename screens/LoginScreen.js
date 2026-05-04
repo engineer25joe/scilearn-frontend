@@ -39,8 +39,8 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}> ATENTION ATENTION {`\n`} THIS APP IS CURRENTLY UNDER DEVELOPMENT {`\n`} YOU MAY EXPIRIENCE SOME ERRORS</Text>
-      <Text style={styles.title}>WELCOME{'\n'}<Text style={styles.accent}>.</Text></Text>
+      <Text style={styles.tag}>// AUTHENTICATION</Text>
+      <Text style={styles.title}>WELCOME{'\n'}BACK<Text style={styles.accent}>.</Text></Text>
 
       <View style={styles.form}>
         <Text style={styles.label}>USERNAME</Text>
@@ -71,18 +71,18 @@ export default function LoginScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.link}>No account? <Text style={styles.linkAccent}>REGISTER HERE →</Text></Text>
+          <Text style={styles.link}>No account? <Text style={styles.linkAccent}>REGISTER FREE →</Text></Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe 🙏💞</Text>
+      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe</Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, backgroundColor: COLORS.bg, padding: 28, justifyContent: 'center' },
-  tag: { color: COLORS.textDim, fontSize: 35, letterSpacing: 3, marginBottom: 16, fontFamily: 'monospace', justifyContent: 'center' },
+  tag: { color: COLORS.textDim, fontSize: 11, letterSpacing: 3, marginBottom: 16, fontFamily: 'monospace' },
   title: { fontSize: 42, fontWeight: '900', color: COLORS.primary, lineHeight: 48, marginBottom: 40, fontFamily: 'monospace' },
   accent: { color: COLORS.amber },
   form: { borderWidth: 1, borderColor: COLORS.border, padding: 24, backgroundColor: COLORS.surface },

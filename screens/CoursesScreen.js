@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
 import COLORS from '../constants/colors';
 import { endpoints } from '../constants/api';
 
-export default function CoursesScreen({ navigation }) {
+export default function CoursesScreen() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     fetch(endpoints.courses)
@@ -26,7 +28,6 @@ export default function CoursesScreen({ navigation }) {
       ) : courses.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No courses yet.</Text>
-          <Text style={styles.emptyHint}>Add courses from the Django admin panel.</Text>
         </View>
       ) : (
         <FlatList
@@ -34,10 +35,19 @@ export default function CoursesScreen({ navigation }) {
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('courses/detail', {courseId: item.id, title: item.title })}>
-             <Text style={styles.cardTitle}>{item.title}</Text>
-             <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
-             <Text style={styles.cardAction}>VIEW LESSONS →</Text>
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => router.push({
+                pathname: '/courses/detail',
+                params: {
+                  courseId: item.id,
+                  title: item.title
+                }
+              })}
+            >
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
+              <Text style={styles.cardAction}>VIEW LESSONS →</Text>
             </TouchableOpacity>
           )}
         />
@@ -56,6 +66,5 @@ const styles = StyleSheet.create({
   cardDesc: { color: COLORS.textDim, fontSize: 13, fontFamily: 'monospace', lineHeight: 20, marginBottom: 12 },
   cardAction: { color: COLORS.primary, fontSize: 12, letterSpacing: 2, fontFamily: 'monospace' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyText: { color: COLORS.primary, fontSize: 16, fontFamily: 'monospace', marginBottom: 8 },
-  emptyHint: { color: COLORS.textDim, fontSize: 13, fontFamily: 'monospace', textAlign: 'center' },
+  emptyText: { color: COLORS.primary, fontSize: 16, fontFamily: 'monospace' },
 });
