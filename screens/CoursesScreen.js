@@ -34,10 +34,10 @@ export default function CoursesScreen({ navigation }) {
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('Lesson', { courseId: item.id, title: item.title })}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
-              <Text style={styles.cardAction}>VIEW LESSONS →</Text>
+            <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('courses/detail', {courseId: item.id, title: item.title })}>
+             <Text style={styles.cardTitle}>{item.title}</Text>
+             <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
+             <Text style={styles.cardAction}>VIEW LESSONS →</Text>
             </TouchableOpacity>
           )}
         />
