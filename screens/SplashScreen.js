@@ -25,7 +25,6 @@ export default function SplashScreen({ navigation }) {
   };
 
   useEffect(() => {
-    // Animate splash
     Animated.sequence([
       Animated.parallel([
         Animated.timing(opacity, {
@@ -47,14 +46,11 @@ export default function SplashScreen({ navigation }) {
       }),
     ]).start();
 
-    // Check for saved login after animation
     const timer = setTimeout(async () => {
       const userData = await getSavedUser();
       if (userData) {
-        // User already logged in — go straight to Dashboard
         navigation.replace('Dashboard');
       } else {
-        // No saved login — go to Login screen
         navigation.replace('Login');
       }
     }, 2500);
@@ -89,4 +85,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tag: {
-    color:
+    color: COLORS.textDim,
+    fontSize: 11,
+    letterSpacing: 2,
+    marginBottom: 24,
+    fontFamily: 'monospace',
+  },
+  logo: {
+    fontSize: 52,
+    fontWeight: '900',
+    color: COLORS.primary,
+    letterSpacing: 6,
+    fontFamily: 'monospace',
+    textShadowColor: 'rgba(0,255,136,0.4)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+  },
+  logoAccent: {
+    color: COLORS.amber,
+  },
+  line: {
+    height: 2,
+    backgroundColor: COLORS.primary,
+    marginVertical: 20,
+  },
+  sub: {
+    color: COLORS.textDim,
+    fontSize: 13,
+    letterSpacing: 4,
+    fontFamily: 'monospace',
+  },
+  cursor: {
+    color: COLORS.primary,
+    fontSize: 20,
+    marginTop: 32,
+    opacity: 0.8,
+  },
+});

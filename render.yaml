@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: scilearn-frontend
+    env: static
+    buildCommand: npx expo export --platform web
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
