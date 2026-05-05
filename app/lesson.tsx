@@ -3,8 +3,8 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, Platform
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const COLORS = {
   primary: '#00ff88',
@@ -30,45 +30,19 @@ export default function Lesson() {
   const { lessonId, title, videoId, tokenCost } = useLocalSearchParams();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [accessed, setAccessed] = useState(false);
   const [playing, setPlaying] = useState(false);
 
- // Check if already unlocked when screen loads
- useEffect(() => {
-  checkIfUnlocked();
-}, []);
-
- const checkIfUnlocked = async () => {
-  try {
-    const userData = await getUserData();
-    if (!userData) return;
-    const user = JSON.parse(userData);
-
-    const res = await fetch(
-      `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Username': user.username,
-        },
-      }
-    );
-    const data = await res.json();
-    if (res.ok && data.already_unlocked) {
-      setAccessed(true);
-      setPlaying(true);
-    }
-  } catch (e) {
-    // Silent fail — user just sees lock screen
-  }
-};
-
   const getUserData = async () => {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem('scibase_user');
+    try {
+      if (Platform.OS === 'web') {
+        return localStorage.getItem('scibase_user');
+      }
+      return await AsyncStorage.getItem('scibase_user');
+    } catch {
+      return null;
     }
-    return await AsyncStorage.getItem('scibase_user');
   };
 
   const saveUserData = async (data: string) => {
@@ -77,6 +51,42 @@ export default function Lesson() {
     } else {
       await AsyncStorage.setItem('scibase_user', data);
     }
+  };
+
+  // Check if already unlocked when screen loads
+  useEffect(() => {
+    checkIfUnlocked();
+  }, []);
+
+  const checkIfUnlocked = async () => {
+    setChecking(true);
+    try {
+      const userData = await getUserData();
+      if (!userData) {
+        setChecking(false);
+        return;
+      }
+      const user = JSON.parse(userData);
+
+      const res = await fetch(
+        `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Username': user.username,
+          },
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.already_unlocked) {
+        setAccessed(true);
+        setPlaying(true);
+      }
+    } catch (e) {
+      // Silent fail — user just sees lock screen
+    }
+    setChecking(false);
   };
 
   const accessLesson = async () => {
@@ -144,13 +154,23 @@ export default function Lesson() {
           width="100%"
           height="220"
           src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
-          allow="autoplay; encrypted-media"
+          allow="autoplay; encrypted-media; fullscreen"
           allowFullScreen
-          style={{ border: 'none' }}
+          style={{ border: 'none', width: '100%', height: '220px' }}
         />
       </View>
     );
   };
+
+  // Show loading while checking unlock status
+  if (checking) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={COLORS.primary} size="large" />
+        <Text style={[styles.tag, { marginTop: 16 }]}>// CHECKING ACCESS...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
