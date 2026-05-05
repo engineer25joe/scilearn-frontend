@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useState, useEffect } from 'react';
 
 const COLORS = {
   primary: '#00ff88',
@@ -32,6 +33,37 @@ export default function Lesson() {
   const [loading, setLoading] = useState(false);
   const [accessed, setAccessed] = useState(false);
   const [playing, setPlaying] = useState(false);
+
+ // Check if already unlocked when screen loads
+ useEffect(() => {
+  checkIfUnlocked();
+}, []);
+
+ const checkIfUnlocked = async () => {
+  try {
+    const userData = await getUserData();
+    if (!userData) return;
+    const user = JSON.parse(userData);
+
+    const res = await fetch(
+      `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Username': user.username,
+        },
+      }
+    );
+    const data = await res.json();
+    if (res.ok && data.already_unlocked) {
+      setAccessed(true);
+      setPlaying(true);
+    }
+  } catch (e) {
+    // Silent fail — user just sees lock screen
+  }
+};
 
   const getUserData = async () => {
     if (Platform.OS === 'web') {

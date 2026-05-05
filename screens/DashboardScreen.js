@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 
 export default function DashboardScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -13,9 +13,13 @@ export default function DashboardScreen({ navigation }) {
   }, []);
 
   const logout = async () => {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem('scibase_user');
+  } else {
     await AsyncStorage.removeItem('scibase_user');
-    navigation.replace('Login');
-  };
+  }
+  navigation.replace('Login');
+};
 
   return (
     <ScrollView style={styles.container}>

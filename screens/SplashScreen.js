@@ -1,5 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import {
+  View, Text, StyleSheet, Animated,
+  Dimensions, Platform
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';
 
 const { width } = Dimensions.get('window');
@@ -9,27 +13,66 @@ export default function SplashScreen({ navigation }) {
   const scale = useRef(new Animated.Value(0.8)).current;
   const lineWidth = useRef(new Animated.Value(0)).current;
 
+  const getSavedUser = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        return localStorage.getItem('scibase_user');
+      }
+      return await AsyncStorage.getItem('scibase_user');
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
+    // Animate splash
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.spring(scale, { toValue: 1, tension: 50, friction: 8, useNativeDriver: true }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scale, {
+          toValue: 1,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: true,
+        }),
       ]),
-      Animated.timing(lineWidth, { toValue: width * 0.6, duration: 600, useNativeDriver: false }),
+      Animated.timing(lineWidth, {
+        toValue: width * 0.6,
+        duration: 600,
+        useNativeDriver: false,
+      }),
     ]).start();
 
-    const timer = setTimeout(() => {
-      navigation.replace('Login');
-    }, 3000);
+    // Check for saved login after animation
+    const timer = setTimeout(async () => {
+      const userData = await getSavedUser();
+      if (userData) {
+        // User already logged in — go straight to Dashboard
+        navigation.replace('Dashboard');
+      } else {
+        // No saved login — go to Login screen
+        navigation.replace('Login');
+      }
+    }, 2500);
 
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <View style={styles.container}>
-      <Animated.View style={{ opacity, transform: [{ scale }], alignItems: 'center' }}>
+      <Animated.View style={{
+        opacity,
+        transform: [{ scale }],
+        alignItems: 'center'
+      }}>
         <Text style={styles.tag}>// EAST AFRICA'S TECH PLATFORM</Text>
-        <Text style={styles.logo}>SCI<Text style={styles.logoAccent}>BASE</Text></Text>
+        <Text style={styles.logo}>
+          SCI<Text style={styles.logoAccent}>LEARN</Text>
+        </Text>
         <Animated.View style={[styles.line, { width: lineWidth }]} />
         <Text style={styles.sub}>LEARN. BUILD. DOMINATE.</Text>
         <Text style={styles.cursor}>█</Text>
@@ -46,38 +89,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tag: {
-    color: COLORS.textDim,
-    fontSize: 11,
-    letterSpacing: 2,
-    marginBottom: 24,
-    fontFamily: 'monospace',
-  },
-  logo: {
-    fontSize: 52,
-    fontWeight: '900',
-    color: COLORS.primary,
-    letterSpacing: 6,
-    fontFamily: 'monospace',
-    textShadowColor: 'rgba(0,255,136,0.4)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
-  },
-  logoAccent: { color: COLORS.amber },
-  line: {
-    height: 2,
-    backgroundColor: COLORS.primary,
-    marginVertical: 20,
-  },
-  sub: {
-    color: COLORS.textDim,
-    fontSize: 13,
-    letterSpacing: 4,
-    fontFamily: 'monospace',
-  },
-  cursor: {
-    color: COLORS.primary,
-    fontSize: 20,
-    marginTop: 32,
-    opacity: 0.8,
-  },
-});
+    color:
