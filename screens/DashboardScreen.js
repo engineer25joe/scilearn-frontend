@@ -124,6 +124,7 @@ export default function DashboardScreen({ navigation }) {
           { icon: '🪙', label: 'TOKENS', screen: 'Tokens' },
           { icon: '🏆', label: 'PROGRESS', screen: 'Courses' },
           { icon: '⚙️', label: 'SETTINGS', screen: 'Login' },
+          { icon: '👤', label: 'PROFILE', screen: 'Profile' },
         ].map(item => (
           <TouchableOpacity
             key={item.label}
