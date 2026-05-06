@@ -1,7 +1,8 @@
-import React, { useState, useEffect, Platform } from 'react';
-import {
+import React, { useState, useEffect } from 'react';
+import { 
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, ActivityIndicator, Alert
+  StyleSheet, ScrollView, ActivityIndicator, 
+  Alert, Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';

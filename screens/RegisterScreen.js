@@ -1,45 +1,83 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, ActivityIndicator, Alert
+  StyleSheet, ScrollView, ActivityIndicator,
+  Alert, Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';
 import { endpoints } from '../constants/api';
 
 export default function RegisterScreen({ navigation }) {
-  const [form, setForm] = useState({ username: '', email: '', phone: '', password: '' });
+  const [form, setForm] = useState({
+    username: '', email: '', phone: '', password: '', confirmPassword: ''
+  });
   const [loading, setLoading] = useState(false);
 
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
+  const validateEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const validatePhone = (phone) => {
+    return /^(\+254|0)[17]\d{8}$/.test(phone);
+  };
+
+  const saveUserData = async (data) => {
+    const json = JSON.stringify(data);
+    if (Platform.OS === 'web') {
+      localStorage.setItem('scibase_user', json);
+    } else {
+      await AsyncStorage.setItem('scibase_user', json);
+    }
+  };
+
   const handleRegister = async () => {
-    if (!form.username || !form.email || !form.password) {
-      Alert.alert('Error', 'Please fill all required fields');
+    const { username, email, phone, password, confirmPassword } = form;
+
+    // Validate fields
+    if (!username || !email || !phone || !password) {
+      Alert.alert('Error', 'Please fill all fields');
       return;
     }
-    if (form.password.length < 8) {
+    if (username.length < 3) {
+      Alert.alert('Error', 'Username must be at least 3 characters');
+      return;
+    }
+    if (!validateEmail(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+    if (!validatePhone(phone)) {
+      Alert.alert('Error', 'Please enter a valid Kenyan phone number\nExample: 0712345678');
+      return;
+    }
+    if (password.length < 8) {
       Alert.alert('Error', 'Password must be at least 8 characters');
       return;
     }
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(endpoints.register, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: form.username,
-          email: form.email,
-          password: form.password,
-          phone_number: form.phone,
+          username,
+          email,
+          password,
+          phone_number: phone,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        await AsyncStorage.setItem('scibase_user', JSON.stringify(data));
-        Alert.alert('🎉 Welcome!', `Account created! You got ${data.tokens} free tokens 🪙`, [
-          { text: 'LETS GO!', onPress: () => navigation.replace('Dashboard') }
-        ]);
+        await saveUserData(data);
+        navigation.replace('Dashboard');
       } else {
         Alert.alert('Error', data.error || 'Registration failed');
       }
@@ -52,36 +90,74 @@ export default function RegisterScreen({ navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.tag}>// CREATE ACCOUNT</Text>
-      <Text style={styles.title}>JOIN<Text style={styles.accent}>.</Text></Text>
-
-      <View style={styles.tokenBadge}>
-        <Text style={styles.tokenIcon}>🪙</Text>
-        <Text style={styles.tokenText}>Get <Text style={styles.tokenAccent}>7 FREE TOKENS</Text> on signup</Text>
-      </View>
+      <Text style={styles.title}>
+        JOIN<Text style={styles.accent}>.</Text>
+      </Text>
 
       <View style={styles.form}>
-        {[
-          { label: 'USERNAME', key: 'username', placeholder: 'engineer_joe' },
-          { label: 'EMAIL', key: 'email', placeholder: 'joe@example.com' },
-          { label: 'PHONE (M-PESA)', key: 'phone', placeholder: '0712345678' },
-          { label: 'PASSWORD', key: 'password', placeholder: 'min. 8 characters', secure: true },
-        ].map(field => (
-          <View key={field.key}>
-            <Text style={styles.label}>{field.label}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={field.placeholder}
-              placeholderTextColor={COLORS.textDim}
-              value={form[field.key]}
-              onChangeText={v => update(field.key, v)}
-              secureTextEntry={field.secure}
-              autoCapitalize="none"
-              keyboardType={field.key === 'phone' ? 'phone-pad' : field.key === 'email' ? 'email-address' : 'default'}
-            />
-          </View>
-        ))}
 
-        <TouchableOpacity style={styles.btn} onPress={handleRegister} disabled={loading}>
+        {/* Username */}
+        <Text style={styles.label}>USERNAME</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="engineer_joe"
+          placeholderTextColor={COLORS.textDim}
+          value={form.username}
+          onChangeText={v => update('username', v)}
+          autoCapitalize="none"
+        />
+
+        {/* Email */}
+        <Text style={styles.label}>EMAIL ADDRESS</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="joe@example.com"
+          placeholderTextColor={COLORS.textDim}
+          value={form.email}
+          onChangeText={v => update('email', v)}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+
+        {/* Phone */}
+        <Text style={styles.label}>PHONE NUMBER</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="0712345678"
+          placeholderTextColor={COLORS.textDim}
+          value={form.phone}
+          onChangeText={v => update('phone', v)}
+          keyboardType="phone-pad"
+        />
+        <Text style={styles.hint}>Format: 0712345678 or +254712345678</Text>
+
+        {/* Password */}
+        <Text style={styles.label}>PASSWORD</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="min. 8 characters"
+          placeholderTextColor={COLORS.textDim}
+          value={form.password}
+          onChangeText={v => update('password', v)}
+          secureTextEntry
+        />
+
+        {/* Confirm Password */}
+        <Text style={styles.label}>CONFIRM PASSWORD</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="repeat password"
+          placeholderTextColor={COLORS.textDim}
+          value={form.confirmPassword}
+          onChangeText={v => update('confirmPassword', v)}
+          secureTextEntry
+        />
+
+        <TouchableOpacity
+          style={styles.btn}
+          onPress={handleRegister}
+          disabled={loading}
+        >
           {loading
             ? <ActivityIndicator color={COLORS.bg} />
             : <Text style={styles.btnText}>CREATE ACCOUNT →</Text>
@@ -89,27 +165,95 @@ export default function RegisterScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.link}>Already registered? <Text style={styles.linkAccent}>LOGIN →</Text></Text>
+          <Text style={styles.link}>
+            Already registered?{' '}
+            <Text style={styles.linkAccent}>LOGIN →</Text>
+          </Text>
         </TouchableOpacity>
       </View>
+
+      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe</Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: COLORS.bg, padding: 28 },
-  tag: { color: COLORS.textDim, fontSize: 11, letterSpacing: 3, marginBottom: 16, marginTop: 40, fontFamily: 'monospace' },
-  title: { fontSize: 42, fontWeight: '900', color: COLORS.primary, marginBottom: 24, fontFamily: 'monospace' },
+  container: {
+    flexGrow: 1,
+    backgroundColor: COLORS.bg,
+    padding: 28,
+  },
+  tag: {
+    color: COLORS.textDim,
+    fontSize: 11,
+    letterSpacing: 3,
+    marginBottom: 16,
+    marginTop: 40,
+    fontFamily: 'monospace',
+  },
+  title: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: COLORS.primary,
+    marginBottom: 32,
+    fontFamily: 'monospace',
+  },
   accent: { color: COLORS.amber },
-  tokenBadge: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, padding: 14, marginBottom: 24, backgroundColor: COLORS.surface, gap: 12 },
-  tokenIcon: { fontSize: 24 },
-  tokenText: { color: COLORS.textDim, fontFamily: 'monospace', fontSize: 13 },
-  tokenAccent: { color: COLORS.primary, fontWeight: '700' },
-  form: { borderWidth: 1, borderColor: COLORS.border, padding: 24, backgroundColor: COLORS.surface },
-  label: { color: COLORS.textDim, fontSize: 11, letterSpacing: 3, marginBottom: 8, fontFamily: 'monospace' },
-  input: { borderWidth: 1, borderColor: COLORS.border, color: COLORS.text, padding: 14, marginBottom: 20, fontFamily: 'monospace', fontSize: 14, backgroundColor: COLORS.bg },
-  btn: { backgroundColor: COLORS.primary, padding: 16, alignItems: 'center', marginTop: 8 },
-  btnText: { color: COLORS.bg, fontWeight: '700', letterSpacing: 3, fontFamily: 'monospace' },
-  link: { textAlign: 'center', marginTop: 20, color: COLORS.textDim, fontFamily: 'monospace', fontSize: 13 },
+  form: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 24,
+    backgroundColor: COLORS.surface,
+  },
+  label: {
+    color: COLORS.textDim,
+    fontSize: 11,
+    letterSpacing: 3,
+    marginBottom: 8,
+    fontFamily: 'monospace',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    color: COLORS.text,
+    padding: 14,
+    marginBottom: 8,
+    fontFamily: 'monospace',
+    fontSize: 14,
+    backgroundColor: COLORS.bg,
+  },
+  hint: {
+    color: COLORS.textDim,
+    fontSize: 10,
+    fontFamily: 'monospace',
+    marginBottom: 16,
+    letterSpacing: 1,
+  },
+  btn: {
+    backgroundColor: COLORS.primary,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  btnText: {
+    color: COLORS.bg,
+    fontWeight: '700',
+    letterSpacing: 3,
+    fontFamily: 'monospace',
+  },
+  link: {
+    textAlign: 'center',
+    color: COLORS.textDim,
+    fontFamily: 'monospace',
+    fontSize: 13,
+  },
   linkAccent: { color: COLORS.primary },
+  footer: {
+    textAlign: 'center',
+    color: COLORS.textDim,
+    fontSize: 11,
+    marginTop: 40,
+    fontFamily: 'monospace',
+  },
 });
