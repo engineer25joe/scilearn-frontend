@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';
 import { endpoints } from '../constants/api';
 
-function AnimatedButton({ onPress, label, loading }) {
+function AnimatedButton({ onPress, label, loading, style, textStyle }) {
   const scale = useRef(new Animated.Value(1)).current;
 
   const onPressIn = () => {
@@ -21,7 +21,7 @@ function AnimatedButton({ onPress, label, loading }) {
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <TouchableOpacity
-        style={styles.btn}
+        style={[styles.btn, style]}
         onPress={onPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
@@ -29,8 +29,8 @@ function AnimatedButton({ onPress, label, loading }) {
         activeOpacity={1}
       >
         {loading
-          ? <ActivityIndicator color={COLORS.bg} />
-          : <Text style={styles.btnText}>{label}</Text>
+          ? <ActivityIndicator color={COLORS.white} />
+          : <Text style={[styles.btnText, textStyle]}>{label}</Text>
         }
       </TouchableOpacity>
     </Animated.View>
@@ -46,16 +46,12 @@ export default function RegisterScreen({ navigation }) {
     confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
+  const [focusedInput, setFocusedInput] = useState(null);
 
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
-  const validateEmail = (email) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
-
-  const validatePhone = (phone) => {
-    return /^(\+254|0)[17]\d{8}$/.test(phone);
-  };
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const validatePhone = (phone) => /^(\+254|0)[17]\d{8}$/.test(phone);
 
   const saveUserData = async (data) => {
     const json = JSON.stringify(data);
@@ -121,63 +117,102 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.tag}>// CREATE ACCOUNT</Text>
-      <Text style={styles.title}>
-        JOIN<Text style={styles.accent}>.</Text>
-      </Text>
 
-      <View style={styles.form}>
+      {/* Banner */}
+      <View style={styles.banner}>
+        <View style={styles.flagStripe} />
+        <View style={styles.flagStripeRed} />
+        <View style={styles.flagStripe} />
+      </View>
+
+      {/* Header */}
+      <View style={styles.headerSection}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={styles.backText}>← BACK TO LOGIN</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>
+          JOIN <Text style={styles.titleAccent}>SCILEARN</Text>
+        </Text>
+        <Text style={styles.subtitle}>
+          Kenya's #1 Tech Learning Platform
+        </Text>
+      </View>
+
+      {/* Form */}
+      <View style={styles.formCard}>
+
+        <View style={styles.formHeader}>
+          <Text style={styles.formTitle}>CREATE ACCOUNT</Text>
+          <Text style={styles.formSub}>Fill in your details to get started</Text>
+        </View>
+
+        {/* Username */}
         <Text style={styles.label}>USERNAME</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, focusedInput === 'username' && styles.inputFocused]}
           placeholder="engineer_joe"
           placeholderTextColor={COLORS.textDim}
           value={form.username}
           onChangeText={v => update('username', v)}
+          onFocus={() => setFocusedInput('username')}
+          onBlur={() => setFocusedInput(null)}
           autoCapitalize="none"
         />
 
+        {/* Email */}
         <Text style={styles.label}>EMAIL ADDRESS</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, focusedInput === 'email' && styles.inputFocused]}
           placeholder="joe@example.com"
           placeholderTextColor={COLORS.textDim}
           value={form.email}
           onChangeText={v => update('email', v)}
+          onFocus={() => setFocusedInput('email')}
+          onBlur={() => setFocusedInput(null)}
           keyboardType="email-address"
           autoCapitalize="none"
         />
 
+        {/* Phone */}
         <Text style={styles.label}>PHONE NUMBER</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, focusedInput === 'phone' && styles.inputFocused]}
           placeholder="0712345678"
           placeholderTextColor={COLORS.textDim}
           value={form.phone}
           onChangeText={v => update('phone', v)}
+          onFocus={() => setFocusedInput('phone')}
+          onBlur={() => setFocusedInput(null)}
           keyboardType="phone-pad"
         />
-        <Text style={styles.hint}>
-          Format: 0712345678 or +254712345678
-        </Text>
+        <Text style={styles.hint}>Format: 0712345678 or +254712345678</Text>
 
+        {/* Password */}
         <Text style={styles.label}>PASSWORD</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, focusedInput === 'password' && styles.inputFocused]}
           placeholder="min. 8 characters"
           placeholderTextColor={COLORS.textDim}
           value={form.password}
           onChangeText={v => update('password', v)}
+          onFocus={() => setFocusedInput('password')}
+          onBlur={() => setFocusedInput(null)}
           secureTextEntry
         />
 
+        {/* Confirm Password */}
         <Text style={styles.label}>CONFIRM PASSWORD</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, focusedInput === 'confirm' && styles.inputFocused]}
           placeholder="repeat password"
           placeholderTextColor={COLORS.textDim}
           value={form.confirmPassword}
           onChangeText={v => update('confirmPassword', v)}
+          onFocus={() => setFocusedInput('confirm')}
+          onBlur={() => setFocusedInput(null)}
           secureTextEntry
         />
 
@@ -189,7 +224,7 @@ export default function RegisterScreen({ navigation }) {
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
           <Text style={styles.link}>
-            Already registered?{' '}
+            Already have an account?{' '}
             <Text style={styles.linkAccent}>LOGIN →</Text>
           </Text>
         </TouchableOpacity>
@@ -204,29 +239,72 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: COLORS.bg,
-    padding: 28,
   },
-  tag: {
-    color: COLORS.textDim,
-    fontSize: 11,
-    letterSpacing: 3,
-    marginBottom: 16,
-    marginTop: 40,
+  banner: {
+    flexDirection: 'row',
+    height: 8,
+  },
+  flagStripe: {
+    flex: 1,
+    backgroundColor: COLORS.green,
+  },
+  flagStripeRed: {
+    flex: 1,
+    backgroundColor: COLORS.red,
+  },
+  headerSection: {
+    padding: 28,
+    paddingTop: 32,
+  },
+  backBtn: {
+    marginBottom: 20,
+  },
+  backText: {
+    color: COLORS.blue,
     fontFamily: 'monospace',
+    fontSize: 12,
+    letterSpacing: 2,
   },
   title: {
-    fontSize: 42,
+    fontSize: 32,
     fontWeight: '900',
-    color: COLORS.primary,
-    marginBottom: 32,
+    color: COLORS.white,
     fontFamily: 'monospace',
+    marginBottom: 8,
   },
-  accent: { color: COLORS.amber },
-  form: {
+  titleAccent: {
+    color: COLORS.green,
+  },
+  subtitle: {
+    color: COLORS.textDim,
+    fontFamily: 'monospace',
+    fontSize: 12,
+  },
+  formCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 24,
     backgroundColor: COLORS.surface,
+    padding: 24,
+    borderTopWidth: 3,
+    borderTopColor: COLORS.blue,
+  },
+  formHeader: {
+    marginBottom: 28,
+  },
+  formTitle: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: '900',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+  },
+  formSub: {
+    color: COLORS.textDim,
+    fontSize: 12,
+    fontFamily: 'monospace',
+    marginTop: 4,
   },
   label: {
     color: COLORS.textDim,
@@ -244,6 +322,11 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 14,
     backgroundColor: COLORS.bg,
+    borderRadius: 4,
+  },
+  inputFocused: {
+    borderColor: COLORS.blue,
+    borderWidth: 1.5,
   },
   hint: {
     color: COLORS.textDim,
@@ -253,17 +336,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   btn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.green,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 16,
+    borderRadius: 4,
   },
   btnText: {
-    color: COLORS.bg,
-    fontWeight: '700',
+    color: COLORS.white,
+    fontWeight: '900',
     letterSpacing: 3,
     fontFamily: 'monospace',
+    fontSize: 14,
   },
   link: {
     textAlign: 'center',
@@ -271,12 +356,12 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 13,
   },
-  linkAccent: { color: COLORS.primary },
+  linkAccent: { color: COLORS.green },
   footer: {
     textAlign: 'center',
     color: COLORS.textDim,
     fontSize: 11,
-    marginTop: 40,
+    margin: 32,
     fontFamily: 'monospace',
   },
 });
