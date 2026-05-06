@@ -1,22 +1,22 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, Platform
+  Alert, ActivityIndicator, Platform,
+  Animated, ScrollView
 } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const COLORS = {
-  primary: '#00ff88',
-  bg: '#020c06',
-  surface: '#0a1f10',
-  border: '#0f3320',
-  text: '#c8ffd8',
-  textDim: '#5a8a6a',
-  amber: '#ffaa00'
+  green: '#006600', greenLight: '#008000',
+  red: '#bb0000', black: '#0a0a0a',
+  blue: '#0f268c', amber: '#ffd700',
+  bg: '#0a0a0a', surface: '#1a1a1a',
+  surfaceGreen: '#0a1a0a', surfaceBlue: '#0a0f1f',
+  border: '#1f3f1f', text: '#f0f0f0',
+  textDim: '#888888', white: '#ffffff',
 };
 
-// Load YouTube player only on mobile
 let YoutubePlayer: any = null;
 if (Platform.OS !== 'web') {
   try {
@@ -33,16 +33,21 @@ export default function Lesson() {
   const [checking, setChecking] = useState(true);
   const [accessed, setAccessed] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const scale = useRef(new Animated.Value(1)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(contentOpacity, {
+      toValue: 1, duration: 600, useNativeDriver: true,
+    }).start();
+    checkIfUnlocked();
+  }, []);
 
   const getUserData = async () => {
     try {
-      if (Platform.OS === 'web') {
-        return localStorage.getItem('scibase_user');
-      }
+      if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
       return await AsyncStorage.getItem('scibase_user');
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   };
 
   const saveUserData = async (data: string) => {
@@ -53,29 +58,17 @@ export default function Lesson() {
     }
   };
 
-  // Check if already unlocked when screen loads
-  useEffect(() => {
-    checkIfUnlocked();
-  }, []);
-
   const checkIfUnlocked = async () => {
     setChecking(true);
     try {
       const userData = await getUserData();
-      if (!userData) {
-        setChecking(false);
-        return;
-      }
+      if (!userData) { setChecking(false); return; }
       const user = JSON.parse(userData);
-
       const res = await fetch(
         `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Username': user.username,
-          },
+          headers: { 'Content-Type': 'application/json', 'X-Username': user.username },
         }
       );
       const data = await res.json();
@@ -83,9 +76,7 @@ export default function Lesson() {
         setAccessed(true);
         setPlaying(true);
       }
-    } catch (e) {
-      // Silent fail — user just sees lock screen
-    }
+    } catch {}
     setChecking(false);
   };
 
@@ -93,28 +84,20 @@ export default function Lesson() {
     setLoading(true);
     try {
       const userData = await getUserData();
-
       if (!userData) {
         Alert.alert('Error', 'Please login first');
         setLoading(false);
         return;
       }
-
       const user = JSON.parse(userData);
-
       const res = await fetch(
         `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Username': user.username,
-          },
+          headers: { 'Content-Type': 'application/json', 'X-Username': user.username },
         }
       );
-
       const data = await res.json();
-
       if (res.ok) {
         setAccessed(true);
         setPlaying(true);
@@ -124,15 +107,13 @@ export default function Lesson() {
         Alert.alert('Error', data.error || 'Cannot access lesson');
       }
     } catch (e: any) {
-      Alert.alert('Error', 'Cannot connect to server: ' + e.message);
+      Alert.alert('Error', 'Cannot connect to server');
     }
     setLoading(false);
   };
 
   const renderVideo = () => {
     if (!accessed) return null;
-
-    // Mobile APK — use YouTube iframe player
     if (Platform.OS !== 'web' && YoutubePlayer) {
       return (
         <YoutubePlayer
@@ -145,8 +126,6 @@ export default function Lesson() {
         />
       );
     }
-
-    // Web browser — use YouTube iframe embed
     return (
       <View style={styles.webPlayer}>
         {/* @ts-ignore */}
@@ -162,183 +141,223 @@ export default function Lesson() {
     );
   };
 
-  // Show loading while checking unlock status
   if (checking) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color={COLORS.primary} size="large" />
-        <Text style={[styles.tag, { marginTop: 16 }]}>// CHECKING ACCESS...</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color={COLORS.green} size="large" />
+        <Text style={styles.loadingText}>CHECKING ACCESS...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <TouchableOpacity onPress={() => router.back()}>
-        <Text style={styles.back}>← BACK</Text>
-      </TouchableOpacity>
-      <Text style={styles.tag}>// LESSON</Text>
-      <Text style={styles.title}>{title}</Text>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
-      {/* Video Box */}
-      <View style={styles.videoBox}>
-        {accessed ? (
-          renderVideo()
-        ) : (
-          <View style={styles.locked}>
-            <Text style={styles.lockIcon}>🔒</Text>
-            <Text style={styles.lockText}>TAP BELOW TO UNLOCK</Text>
-            <Text style={styles.cost}>{tokenCost} 🪙 TOKENS</Text>
-          </View>
-        )}
+      {/* Flag Banner */}
+      <View style={styles.flagBanner}>
+        <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
+        <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
+        <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
       </View>
 
-      {/* Unlock Button */}
-      {!accessed && (
-        <View style={styles.accessSection}>
-          <Text style={styles.costInfo}>
-            This lesson costs{' '}
-            <Text style={styles.costHighlight}>{tokenCost} tokens</Text>
-          </Text>
-          <TouchableOpacity
-            style={styles.btn}
-            onPress={accessLesson}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={COLORS.bg} />
-            ) : (
-              <Text style={styles.btnText}>
-                UNLOCK LESSON → {tokenCost} 🪙
-              </Text>
-            )}
+      <Animated.View style={{ opacity: contentOpacity }}>
+
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Text style={styles.backText}>← BACK</Text>
           </TouchableOpacity>
-        </View>
-      )}
+          <Text style={styles.tag}>// LESSON</Text>
+          <Text style={styles.title}>{title}</Text>
 
-      {/* Success Message */}
-      {accessed && (
-        <View style={styles.successBox}>
-          <Text style={styles.success}>✅ LESSON UNLOCKED!</Text>
+          {/* Token cost badge */}
+          <View style={styles.costBadge}>
+            <Text style={styles.costBadgeText}>🪙 {tokenCost} TOKEN LESSON</Text>
+          </View>
         </View>
-      )}
 
-      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe</Text>
-    </View>
+        {/* Video Box */}
+        <View style={styles.videoBox}>
+          {accessed ? renderVideo() : (
+            <View style={styles.locked}>
+              <Text style={styles.lockIcon}>🔒</Text>
+              <Text style={styles.lockTitle}>LESSON LOCKED</Text>
+              <Text style={styles.lockText}>Unlock to start watching</Text>
+              <View style={styles.lockCostBox}>
+                <Text style={styles.lockCost}>{tokenCost} 🪙 TOKENS</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Unlock Section */}
+        {!accessed && (
+          <View style={styles.unlockSection}>
+            <View style={styles.unlockInfo}>
+              <Text style={styles.unlockInfoIcon}>ℹ️</Text>
+              <Text style={styles.unlockInfoText}>
+                This lesson costs <Text style={styles.unlockCostText}>{tokenCost} tokens</Text>.
+                Tokens are deducted once per lesson — you can rewatch for free!
+              </Text>
+            </View>
+
+            <Animated.View style={{ transform: [{ scale }] }}>
+              <TouchableOpacity
+                style={styles.unlockBtn}
+                onPress={accessLesson}
+                onPressIn={() => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start()}
+                onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start()}
+                disabled={loading}
+                activeOpacity={1}
+              >
+                {loading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <View style={styles.unlockBtnInner}>
+                    <Text style={styles.unlockBtnText}>🔓 UNLOCK LESSON</Text>
+                    <Text style={styles.unlockBtnCost}>{tokenCost} 🪙 tokens</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        )}
+
+        {/* Success */}
+        {accessed && (
+          <View style={styles.successBox}>
+            <Text style={styles.successIcon}>✅</Text>
+            <View>
+              <Text style={styles.successText}>LESSON UNLOCKED!</Text>
+              <Text style={styles.successSub}>You can rewatch this lesson for free anytime</Text>
+            </View>
+          </View>
+        )}
+
+        <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe 🇰🇪</Text>
+      </Animated.View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-    padding: 28,
-    paddingTop: 56,
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  loadingContainer: {
+    flex: 1, backgroundColor: COLORS.bg,
+    justifyContent: 'center', alignItems: 'center',
   },
-  back: {
-    color: COLORS.primary,
-    fontFamily: 'monospace',
+  loadingText: {
+    color: COLORS.green, fontFamily: 'monospace',
+    marginTop: 16, letterSpacing: 3, fontSize: 11,
+  },
+  flagBanner: { flexDirection: 'row', height: 6 },
+  flagStripe: { flex: 1 },
+  header: {
+    padding: 24, paddingTop: 32,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.surfaceGreen,
+  },
+  backBtn: {
+    alignSelf: 'flex-start',
+    borderWidth: 1, borderColor: COLORS.border,
+    paddingVertical: 6, paddingHorizontal: 14,
     marginBottom: 16,
-    fontSize: 13,
-    letterSpacing: 2,
+  },
+  backText: {
+    color: COLORS.green, fontFamily: 'monospace',
+    fontSize: 12, letterSpacing: 2,
   },
   tag: {
-    color: COLORS.textDim,
-    fontSize: 11,
-    letterSpacing: 3,
-    fontFamily: 'monospace',
-    marginBottom: 8,
+    color: COLORS.textDim, fontSize: 10,
+    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 6,
   },
   title: {
-    color: COLORS.text,
-    fontSize: 20,
-    fontWeight: '700',
-    fontFamily: 'monospace',
-    marginBottom: 24,
+    color: COLORS.white, fontSize: 20,
+    fontWeight: '900', fontFamily: 'monospace', marginBottom: 12,
+  },
+  costBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.amber,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  costBadgeText: {
+    color: COLORS.black, fontFamily: 'monospace',
+    fontWeight: '900', fontSize: 11, letterSpacing: 1,
   },
   videoBox: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    margin: 16,
+    borderWidth: 1, borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
-    marginBottom: 24,
+    minHeight: 220, justifyContent: 'center',
     overflow: 'hidden',
-    minHeight: 220,
-    justifyContent: 'center',
   },
   locked: {
-    height: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 220, alignItems: 'center',
+    justifyContent: 'center', padding: 20,
   },
-  lockIcon: {
-    fontSize: 40,
-    marginBottom: 12,
+  lockIcon: { fontSize: 48, marginBottom: 12 },
+  lockTitle: {
+    color: COLORS.white, fontFamily: 'monospace',
+    fontWeight: '900', fontSize: 16, marginBottom: 8,
   },
   lockText: {
-    color: COLORS.textDim,
-    fontFamily: 'monospace',
-    fontSize: 13,
-    letterSpacing: 2,
+    color: COLORS.textDim, fontFamily: 'monospace',
+    fontSize: 12, marginBottom: 16,
   },
-  cost: {
-    color: COLORS.amber,
-    fontFamily: 'monospace',
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 8,
+  lockCostBox: {
+    borderWidth: 1, borderColor: COLORS.amber,
+    paddingHorizontal: 20, paddingVertical: 8,
   },
-  webPlayer: {
-    width: '100%',
-    height: 220,
+  lockCost: {
+    color: COLORS.amber, fontFamily: 'monospace',
+    fontWeight: '900', fontSize: 18,
   },
-  accessSection: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 24,
-    backgroundColor: COLORS.surface,
+  webPlayer: { width: '100%', height: 220 },
+  unlockSection: { marginHorizontal: 16, marginBottom: 16 },
+  unlockInfo: {
+    flexDirection: 'row', gap: 12,
+    borderWidth: 1, borderColor: COLORS.blue,
+    backgroundColor: COLORS.surfaceBlue,
+    padding: 14, marginBottom: 16,
   },
-  costInfo: {
-    color: COLORS.textDim,
-    fontFamily: 'monospace',
-    fontSize: 13,
-    marginBottom: 16,
-    textAlign: 'center',
+  unlockInfoIcon: { fontSize: 16 },
+  unlockInfoText: {
+    flex: 1, color: COLORS.textDim,
+    fontFamily: 'monospace', fontSize: 12, lineHeight: 20,
   },
-  costHighlight: {
-    color: COLORS.amber,
-    fontWeight: '700',
+  unlockCostText: { color: COLORS.amber, fontWeight: '700' },
+  unlockBtn: {
+    backgroundColor: COLORS.green,
+    padding: 18, alignItems: 'center',
+    borderBottomWidth: 4, borderBottomColor: COLORS.greenLight,
   },
-  btn: {
-    backgroundColor: COLORS.primary,
-    padding: 16,
-    alignItems: 'center',
+  unlockBtnInner: { alignItems: 'center' },
+  unlockBtnText: {
+    color: COLORS.white, fontWeight: '900',
+    letterSpacing: 2, fontFamily: 'monospace', fontSize: 16,
   },
-  btnText: {
-    color: COLORS.bg,
-    fontWeight: '700',
-    letterSpacing: 2,
-    fontFamily: 'monospace',
-    fontSize: 14,
+  unlockBtnCost: {
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: 'monospace', fontSize: 11, marginTop: 4,
   },
   successBox: {
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    marginHorizontal: 16, marginBottom: 16,
+    borderWidth: 1, borderColor: COLORS.green,
+    backgroundColor: COLORS.surfaceGreen,
+    padding: 16, borderLeftWidth: 4, borderLeftColor: COLORS.green,
   },
-  success: {
-    color: COLORS.primary,
-    fontFamily: 'monospace',
-    letterSpacing: 2,
-    fontSize: 14,
+  successIcon: { fontSize: 28 },
+  successText: {
+    color: COLORS.green, fontFamily: 'monospace',
+    fontWeight: '900', fontSize: 14, letterSpacing: 1,
+  },
+  successSub: {
+    color: COLORS.textDim, fontFamily: 'monospace',
+    fontSize: 11, marginTop: 4,
   },
   footer: {
-    textAlign: 'center',
-    color: COLORS.textDim,
-    fontSize: 11,
-    marginTop: 32,
-    fontFamily: 'monospace',
+    textAlign: 'center', color: COLORS.textDim,
+    fontSize: 11, margin: 32, fontFamily: 'monospace',
   },
 });
