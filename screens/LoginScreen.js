@@ -1,12 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, ActivityIndicator,
-  Alert, Platform
+  Alert, Platform, Animated
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';
 import { endpoints } from '../constants/api';
+
+function AnimatedButton({ onPress, label, loading }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
+  };
+  const onPressOut = () => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        style={styles.btn}
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={loading}
+        activeOpacity={1}
+      >
+        {loading
+          ? <ActivityIndicator color={COLORS.bg} />
+          : <Text style={styles.btnText}>{label}</Text>
+        }
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 export default function LoginScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -14,11 +43,11 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const saveUserData = async (data) => {
-    const jsonData = JSON.stringify(data);
+    const json = JSON.stringify(data);
     if (Platform.OS === 'web') {
-      localStorage.setItem('scibase_user', jsonData);
+      localStorage.setItem('scibase_user', json);
     } else {
-      await AsyncStorage.setItem('scibase_user', jsonData);
+      await AsyncStorage.setItem('scibase_user', json);
     }
   };
 
@@ -75,16 +104,11 @@ export default function LoginScreen({ navigation }) {
           secureTextEntry
         />
 
-        <TouchableOpacity
-          style={styles.btn}
+        <AnimatedButton
+          label="LOGIN →"
           onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading
-            ? <ActivityIndicator color={COLORS.bg} />
-            : <Text style={styles.btnText}>LOGIN →</Text>
-          }
-        </TouchableOpacity>
+          loading={loading}
+        />
 
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
           <Text style={styles.link}>
@@ -121,9 +145,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     fontFamily: 'monospace',
   },
-  accent: {
-    color: COLORS.amber,
-  },
+  accent: { color: COLORS.amber },
   form: {
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -166,9 +188,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 13,
   },
-  linkAccent: {
-    color: COLORS.primary,
-  },
+  linkAccent: { color: COLORS.primary },
   footer: {
     textAlign: 'center',
     color: COLORS.textDim,

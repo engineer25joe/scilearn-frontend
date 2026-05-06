@@ -1,16 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, ActivityIndicator,
-  Alert, Platform
+  Alert, Platform, Animated
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';
 import { endpoints } from '../constants/api';
 
+function AnimatedButton({ onPress, label, loading }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
+  };
+  const onPressOut = () => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        style={styles.btn}
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={loading}
+        activeOpacity={1}
+      >
+        {loading
+          ? <ActivityIndicator color={COLORS.bg} />
+          : <Text style={styles.btnText}>{label}</Text>
+        }
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export default function RegisterScreen({ navigation }) {
   const [form, setForm] = useState({
-    username: '', email: '', phone: '', password: '', confirmPassword: ''
+    username: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -36,8 +69,7 @@ export default function RegisterScreen({ navigation }) {
   const handleRegister = async () => {
     const { username, email, phone, password, confirmPassword } = form;
 
-    // Validate fields
-    if (!username || !email || !phone || !password) {
+    if (!username || !email || !phone || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
@@ -50,7 +82,7 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
     if (!validatePhone(phone)) {
-      Alert.alert('Error', 'Please enter a valid Kenyan phone number\nExample: 0712345678');
+      Alert.alert('Error', 'Please enter a valid phone number\nExample: 0712345678');
       return;
     }
     if (password.length < 8) {
@@ -95,8 +127,6 @@ export default function RegisterScreen({ navigation }) {
       </Text>
 
       <View style={styles.form}>
-
-        {/* Username */}
         <Text style={styles.label}>USERNAME</Text>
         <TextInput
           style={styles.input}
@@ -107,7 +137,6 @@ export default function RegisterScreen({ navigation }) {
           autoCapitalize="none"
         />
 
-        {/* Email */}
         <Text style={styles.label}>EMAIL ADDRESS</Text>
         <TextInput
           style={styles.input}
@@ -119,7 +148,6 @@ export default function RegisterScreen({ navigation }) {
           autoCapitalize="none"
         />
 
-        {/* Phone */}
         <Text style={styles.label}>PHONE NUMBER</Text>
         <TextInput
           style={styles.input}
@@ -129,9 +157,10 @@ export default function RegisterScreen({ navigation }) {
           onChangeText={v => update('phone', v)}
           keyboardType="phone-pad"
         />
-        <Text style={styles.hint}>Format: 0712345678 or +254712345678</Text>
+        <Text style={styles.hint}>
+          Format: 0712345678 or +254712345678
+        </Text>
 
-        {/* Password */}
         <Text style={styles.label}>PASSWORD</Text>
         <TextInput
           style={styles.input}
@@ -142,7 +171,6 @@ export default function RegisterScreen({ navigation }) {
           secureTextEntry
         />
 
-        {/* Confirm Password */}
         <Text style={styles.label}>CONFIRM PASSWORD</Text>
         <TextInput
           style={styles.input}
@@ -153,16 +181,11 @@ export default function RegisterScreen({ navigation }) {
           secureTextEntry
         />
 
-        <TouchableOpacity
-          style={styles.btn}
+        <AnimatedButton
+          label="CREATE ACCOUNT →"
           onPress={handleRegister}
-          disabled={loading}
-        >
-          {loading
-            ? <ActivityIndicator color={COLORS.bg} />
-            : <Text style={styles.btnText}>CREATE ACCOUNT →</Text>
-          }
-        </TouchableOpacity>
+          loading={loading}
+        />
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
           <Text style={styles.link}>
