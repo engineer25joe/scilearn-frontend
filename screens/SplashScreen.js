@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';
+import { registerForPushNotifications, scheduleStudyReminder } from '../utils/notifications';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,6 +28,11 @@ export default function SplashScreen({ navigation }) {
   };
 
   useEffect(() => {
+    // Register push notifications
+    registerForPushNotifications().then(token => {
+     if (token) console.log('Push token:', token);
+    });
+    scheduleStudyReminder();
     Animated.sequence([
       // Flag stripes animate in
       Animated.timing(flagAnim, {
