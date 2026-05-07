@@ -233,6 +233,32 @@ export default function Lesson() {
             </View>
           </View>
         )}
+        
+        {/* Notes Button */}
+        {accessed && (
+          <View style={{ marginHorizontal: 16, marginBottom: 12 }}>
+            <TouchableOpacity
+              style={{
+                borderWidth: 1, borderColor: COLORS.blue,
+                padding: 14, alignItems: 'center',
+                backgroundColor: COLORS.surfaceBlue,
+              }}
+              onPress={() => {
+                const notesUrl = `https://scilearnbackend.onrender.com/api/courses/notes/${lessonId}/`;
+                if (Platform.OS === 'web') {
+                  window.open(notesUrl, '_blank');
+                } else {
+                  Alert.alert('Notes', 'PDF notes download coming soon!');
+                }
+              }}
+            >
+              <Text style={{
+                color: COLORS.blue, fontFamily: 'monospace',
+                fontWeight: '900', letterSpacing: 2,
+              }}>📄 DOWNLOAD LESSON NOTES</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe 🇰🇪</Text>
       </Animated.View>

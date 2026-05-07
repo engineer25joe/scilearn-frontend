@@ -169,6 +169,29 @@ export default function CourseDetail() {
   );
 }
 
+{/* Certificate Button */}
+<TouchableOpacity
+  style={{
+    margin: 16, borderWidth: 1,
+    borderColor: COLORS.amber, padding: 16,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,215,0,0.05)',
+  }}
+  onPress={() => {
+    const certUrl = `https://scilearnbackend.onrender.com/api/courses/certificate/${courseId}/`;
+    if (Platform.OS === 'web') {
+      window.open(certUrl, '_blank');
+    } else {
+      Alert.alert('🏆 Certificate', 'Your certificate will download shortly!');
+    }
+  }}
+>
+  <Text style={{
+    color: COLORS.amber, fontFamily: 'monospace',
+    fontWeight: '900', letterSpacing: 2, fontSize: 14,
+  }}>🏆 DOWNLOAD CERTIFICATE</Text>
+</TouchableOpacity>
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   flagBanner: { flexDirection: 'row', height: 6 },
