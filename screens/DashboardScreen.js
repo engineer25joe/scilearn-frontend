@@ -203,6 +203,11 @@ export default function DashboardScreen({ navigation }) {
             onPress={() => navigation.navigate('Courses')}
             color={COLORS.red}
           />
+          <GridButton
+            icon="🤖" label="Q&A AI"
+            onPress={() => navigation.navigate('QA')}
+            color={COLORS.blue}
+         />
         </View>
       </AnimatedCard>
 
