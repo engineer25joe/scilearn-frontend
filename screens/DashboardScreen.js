@@ -52,6 +52,7 @@ export default function DashboardScreen({ navigation }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const getUserData = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
@@ -93,6 +94,17 @@ export default function DashboardScreen({ navigation }) {
       }
     }
     setLoading(false);
+    
+    // Fetch unread notifications count
+    try {
+      const notifRes = await fetch(
+        'https://scilearnbackend.onrender.com/api/notifications/',
+        { headers: { 'X-Username': parsed.username } }
+      );
+      const notifData = await notifRes.json();
+      if (notifRes.ok) setUnreadCount(notifData.unread_count || 0);
+    } catch {}
+    
   };
 
   useEffect(() => { loadUser(); }, []);
@@ -137,9 +149,27 @@ export default function DashboardScreen({ navigation }) {
               </Text>
             </Text>
           </View>
-          <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>↪ LOGOUT</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {/* Notifications Bell */}
+            <TouchableOpacity
+              style={styles.bellBtn}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <Text style={styles.bellIcon}>🔔</Text>
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Logout */}
+            <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+              <Text style={styles.logoutText}>↪ OUT</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </AnimatedCard>
 
@@ -393,5 +423,25 @@ const styles = StyleSheet.create({
   footer: {
     textAlign: 'center', color: COLORS.textDim,
     fontSize: 11, margin: 32, fontFamily: 'monospace',
+  },
+  headerRight: {
+  flexDirection: 'row', gap: 8, alignItems: 'center',
+  },
+  bellBtn: {
+    position: 'relative',
+    borderWidth: 1, borderColor: COLORS.border,
+    padding: 10, backgroundColor: COLORS.surface,
+  },
+  bellIcon: { fontSize: 20 },
+  bellBadge: {
+    position: 'absolute', top: -6, right: -6,
+    backgroundColor: COLORS.red,
+    minWidth: 18, height: 18, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  bellBadgeText: {
+    color: COLORS.white, fontSize: 9,
+    fontFamily: 'monospace', fontWeight: '900',
   },
 });
