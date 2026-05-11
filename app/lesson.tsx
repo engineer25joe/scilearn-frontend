@@ -62,24 +62,40 @@ export default function Lesson() {
     setChecking(true);
     try {
       const userData = await getUserData();
-      if (!userData) { setChecking(false); return; }
+      if (!userData) {
+        setChecking(false);
+        return;
+      }
       const user = JSON.parse(userData);
+      if (!user.username) {
+        setChecking(false);
+        return;
+      }
+
       const res = await fetch(
         `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
         {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json', 'X-Username': user.username },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Username': user.username,
+          },
         }
       );
-      const data = await res.json();
-      if (res.ok && data.already_unlocked) {
-        setAccessed(true);
-        setPlaying(true);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.already_unlocked) {
+          setAccessed(true);
+          setPlaying(true);
+        }
       }
-    } catch {}
+    } catch (e) {
+      console.log('Check unlock error:', e);
+    }
     setChecking(false);
   };
-
+  
   const accessLesson = async () => {
     setLoading(true);
     try {
@@ -90,14 +106,25 @@ export default function Lesson() {
         return;
       }
       const user = JSON.parse(userData);
+      if (!user.username) {
+        Alert.alert('Error', 'Session expired. Please login again.');
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(
         `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
         {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json', 'X-Username': user.username },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Username': user.username,
+          },
         }
       );
+
       const data = await res.json();
+
       if (res.ok) {
         setAccessed(true);
         setPlaying(true);
@@ -107,7 +134,7 @@ export default function Lesson() {
         Alert.alert('Error', data.error || 'Cannot access lesson');
       }
     } catch (e: any) {
-      Alert.alert('Error', 'Cannot connect to server');
+      Alert.alert('Error', 'Cannot connect to server: ' + e.message);
     }
     setLoading(false);
   };
