@@ -385,7 +385,7 @@ export default function TokensScreen({ navigation }) {
         <View style={styles.c2bDetails}>
           <View style={styles.c2bItem}>
             <Text style={styles.c2bLabel}>PAYBILL/TILL</Text>
-            <Text style={styles.c2bValue}>{'XXXXXX'}</Text>
+            <Text style={styles.c2bValue}>{'7809404'}</Text>
           </View>
           <View style={styles.c2bItem}>
             <Text style={styles.c2bLabel}>ACCOUNT REF</Text>
