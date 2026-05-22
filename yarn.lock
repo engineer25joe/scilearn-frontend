@@ -3476,6 +3476,11 @@ expo-file-system@~55.0.17:
   resolved "https://registry.npmjs.org/expo-file-system/-/expo-file-system-55.0.17.tgz"
   integrity sha512-d27K1cagUOt2BwxwPka9KW8Znu5kN1tnairozCzzCRZviZFtWnBxwFuJ3KU6MAbav/9UhSMkp5Ve/oZ+SR0UgQ==
 
+expo-file-system@~55.0.22:
+  version "55.0.22"
+  resolved "https://registry.yarnpkg.com/expo-file-system/-/expo-file-system-55.0.22.tgz#99d69628dbdc622dc592ff46416e563cc1a6c3f5"
+  integrity sha512-T5Rfv3vqcFyhVrl/tEEeglc/J8LJbcZQgC3TMT5jxzIgUgWmIgJEgncGYqB/YNXFgUTL2LiuCvqrU51Dzp83NQ==
+
 expo-font@~55.0.6:
   version "55.0.6"
   resolved "https://registry.npmjs.org/expo-font/-/expo-font-55.0.6.tgz"
@@ -3512,6 +3517,11 @@ expo-linking@^55.0.14:
   dependencies:
     expo-constants "~55.0.15"
     invariant "^2.2.4"
+
+expo-media-library@~55.0.17:
+  version "55.0.17"
+  resolved "https://registry.yarnpkg.com/expo-media-library/-/expo-media-library-55.0.17.tgz#cfbe25b1d18db41574490b969880758ef0e5f731"
+  integrity sha512-x/8bdVZAjjB/yitlYZs87qXxxCpJdQBhJ0juXcGHPXCkijNz2sef6BmnbbK5FXg8jxf5nHkG0bIUQgo223hOvw==
 
 expo-modules-autolinking@55.0.19:
   version "55.0.19"
@@ -5590,6 +5600,11 @@ react-native-screens@~4.23.0:
   dependencies:
     react-freeze "^1.0.0"
     warn-once "^0.1.0"
+
+react-native-video@^6.19.2:
+  version "6.19.2"
+  resolved "https://registry.yarnpkg.com/react-native-video/-/react-native-video-6.19.2.tgz#91065e087f90bc653b312ff2347903345c4f2411"
+  integrity sha512-gh5dBMGSHywKr8+p4azRXrFQgT+QTmS1tI4sz6kVRjSENORfsrGGLQzmyo/7S9m+ZOTLWQJ3h8ONaXxR4F2Fcw==
 
 react-native-web-webview@^1.0.2:
   version "1.0.2"

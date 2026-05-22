@@ -6,6 +6,11 @@ import {
 } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  isVideoRefSaved,
+  downloadVideo,
+  deleteVideo,
+} from '../utils/videoCache';
 
 const COLORS = {
   green: '#006600', greenLight: '#008000',
@@ -33,14 +38,19 @@ export default function Lesson() {
   const [checking, setChecking] = useState(true);
   const [accessed, setAccessed] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const scale = useRef(new Animated.Value(1)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(contentOpacity, {
       toValue: 1, duration: 600, useNativeDriver: true,
     }).start();
     checkIfUnlocked();
+    checkIfDownloaded();
   }, []);
 
   const getUserData = async () => {
@@ -58,20 +68,18 @@ export default function Lesson() {
     }
   };
 
+  const checkIfDownloaded = async () => {
+    if (Platform.OS === 'web') return;
+    const saved = await isVideoRefSaved(videoId as string);
+    setIsDownloaded(saved);
+  };
+
   const checkIfUnlocked = async () => {
     setChecking(true);
     try {
       const userData = await getUserData();
-      if (!userData) {
-        setChecking(false);
-        return;
-      }
+      if (!userData) { setChecking(false); return; }
       const user = JSON.parse(userData);
-      if (!user.username) {
-        setChecking(false);
-        return;
-      }
-
       const res = await fetch(
         `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
         {
@@ -82,20 +90,15 @@ export default function Lesson() {
           },
         }
       );
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.already_unlocked) {
-          setAccessed(true);
-          setPlaying(true);
-        }
+      const data = await res.json();
+      if (res.ok && data.already_unlocked) {
+        setAccessed(true);
+        setPlaying(true);
       }
-    } catch (e) {
-      console.log('Check unlock error:', e);
-    }
+    } catch {}
     setChecking(false);
   };
-  
+
   const accessLesson = async () => {
     setLoading(true);
     try {
@@ -106,12 +109,6 @@ export default function Lesson() {
         return;
       }
       const user = JSON.parse(userData);
-      if (!user.username) {
-        Alert.alert('Error', 'Session expired. Please login again.');
-        setLoading(false);
-        return;
-      }
-
       const res = await fetch(
         `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
         {
@@ -122,9 +119,7 @@ export default function Lesson() {
           },
         }
       );
-
       const data = await res.json();
-
       if (res.ok) {
         setAccessed(true);
         setPlaying(true);
@@ -134,13 +129,74 @@ export default function Lesson() {
         Alert.alert('Error', data.error || 'Cannot access lesson');
       }
     } catch (e: any) {
-      Alert.alert('Error', 'Cannot connect to server: ' + e.message);
+      Alert.alert('Error', 'Cannot connect to server');
     }
     setLoading(false);
   };
 
+  const handleDownload = async () => {
+    if (isDownloaded) {
+      // Already downloaded — offer to delete
+      Alert.alert(
+        '🗑️ Remove Download',
+        'This lesson is already saved offline. Remove it?',
+        [
+          { text: 'KEEP', style: 'cancel' },
+          {
+            text: 'REMOVE',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteVideo(videoId as string);
+              setIsDownloaded(false);
+              Alert.alert('✅ Removed', 'Offline video removed');
+            }
+          }
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      '📥 Save for Offline',
+      `Save "${title}" for offline viewing?\n\nThe video reference will be saved to your SCI LEARN Videos folder.`,
+      [
+        { text: 'CANCEL', style: 'cancel' },
+        {
+          text: 'SAVE OFFLINE',
+          onPress: async () => {
+            setDownloading(true);
+            setDownloadProgress(0);
+
+            Animated.timing(progressAnim, {
+              toValue: 1, duration: 2000, useNativeDriver: false,
+            }).start();
+
+            const result = await downloadVideo(
+              videoId as string,
+              title as string,
+              (progress) => setDownloadProgress(progress)
+            );
+
+            setDownloading(false);
+
+            if (result.success) {
+              setIsDownloaded(true);
+              Alert.alert(
+                '✅ Saved!',
+                `"${title}" saved for offline viewing!\n\nFind it in: SCI LEARN Videos folder\n\nYou can also play it with any video app on your phone.`
+              );
+            } else {
+              Alert.alert('❌ Error', result.error || 'Download failed');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderVideo = () => {
     if (!accessed) return null;
+
     if (Platform.OS !== 'web' && YoutubePlayer) {
       return (
         <YoutubePlayer
@@ -153,6 +209,7 @@ export default function Lesson() {
         />
       );
     }
+
     return (
       <View style={styles.webPlayer}>
         {/* @ts-ignore */}
@@ -196,8 +253,6 @@ export default function Lesson() {
           </TouchableOpacity>
           <Text style={styles.tag}>// LESSON</Text>
           <Text style={styles.title}>{title}</Text>
-
-          {/* Token cost badge */}
           <View style={styles.costBadge}>
             <Text style={styles.costBadgeText}>🪙 {tokenCost} TOKEN LESSON</Text>
           </View>
@@ -217,14 +272,92 @@ export default function Lesson() {
           )}
         </View>
 
+        {/* Download Button — only show on mobile when unlocked */}
+        {accessed && Platform.OS !== 'web' && (
+          <View style={styles.downloadSection}>
+
+            {/* Download Status */}
+            {isDownloaded && (
+              <View style={styles.downloadedBadge}>
+                <Text style={styles.downloadedIcon}>✅</Text>
+                <Text style={styles.downloadedText}>
+                  SAVED FOR OFFLINE VIEWING
+                </Text>
+              </View>
+            )}
+
+            {/* Download Progress */}
+            {downloading && (
+              <View style={styles.progressContainer}>
+                <Text style={styles.progressText}>SAVING...</Text>
+                <View style={styles.progressBar}>
+                  <Animated.View style={[
+                    styles.progressFill,
+                    {
+                      width: progressAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0%', '100%'],
+                      })
+                    }
+                  ]} />
+                </View>
+              </View>
+            )}
+
+            {/* Download Button */}
+            <Animated.View style={{ transform: [{ scale }] }}>
+              <TouchableOpacity
+                style={[
+                  styles.downloadBtn,
+                  isDownloaded && styles.downloadBtnActive,
+                  downloading && styles.downloadBtnLoading,
+                ]}
+                onPress={handleDownload}
+                onPressIn={() => Animated.spring(scale, {
+                  toValue: 0.96, useNativeDriver: true, speed: 50
+                }).start()}
+                onPressOut={() => Animated.spring(scale, {
+                  toValue: 1, useNativeDriver: true, speed: 50
+                }).start()}
+                disabled={downloading}
+                activeOpacity={1}
+              >
+                {downloading ? (
+                  <View style={styles.downloadBtnInner}>
+                    <ActivityIndicator color={COLORS.white} size="small" />
+                    <Text style={styles.downloadBtnText}>  SAVING...</Text>
+                  </View>
+                ) : (
+                  <View style={styles.downloadBtnInner}>
+                    <Text style={styles.downloadBtnIcon}>
+                      {isDownloaded ? '🗑️' : '📥'}
+                    </Text>
+                    <Text style={styles.downloadBtnText}>
+                      {isDownloaded ? 'REMOVE OFFLINE COPY' : 'SAVE FOR OFFLINE'}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Storage Info */}
+            {!isDownloaded && !downloading && (
+              <Text style={styles.storageInfo}>
+                📁 Saved to: Internal Storage → SCI LEARN Videos
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* Unlock Section */}
         {!accessed && (
           <View style={styles.unlockSection}>
             <View style={styles.unlockInfo}>
               <Text style={styles.unlockInfoIcon}>ℹ️</Text>
               <Text style={styles.unlockInfoText}>
-                This lesson costs <Text style={styles.unlockCostText}>{tokenCost} tokens</Text>.
-                Tokens are deducted once per lesson — you can rewatch for free!
+                This lesson costs{' '}
+                <Text style={styles.unlockCostText}>{tokenCost} tokens</Text>.
+                Tokens are deducted once — rewatch for free anytime!
               </Text>
             </View>
 
@@ -232,8 +365,12 @@ export default function Lesson() {
               <TouchableOpacity
                 style={styles.unlockBtn}
                 onPress={accessLesson}
-                onPressIn={() => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start()}
-                onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start()}
+                onPressIn={() => Animated.spring(scale, {
+                  toValue: 0.96, useNativeDriver: true, speed: 50
+                }).start()}
+                onPressOut={() => Animated.spring(scale, {
+                  toValue: 1, useNativeDriver: true, speed: 50
+                }).start()}
                 disabled={loading}
                 activeOpacity={1}
               >
@@ -250,40 +387,29 @@ export default function Lesson() {
           </View>
         )}
 
-        {/* Success */}
+        {/* Success Box */}
         {accessed && (
           <View style={styles.successBox}>
             <Text style={styles.successIcon}>✅</Text>
             <View>
               <Text style={styles.successText}>LESSON UNLOCKED!</Text>
-              <Text style={styles.successSub}>You can rewatch this lesson for free anytime</Text>
+              <Text style={styles.successSub}>
+                Rewatch anytime for free
+              </Text>
             </View>
           </View>
         )}
-        
-        {/* Notes Button */}
-        {accessed && (
-          <View style={{ marginHorizontal: 16, marginBottom: 12 }}>
-            <TouchableOpacity
-              style={{
-                borderWidth: 1, borderColor: COLORS.blue,
-                padding: 14, alignItems: 'center',
-                backgroundColor: COLORS.surfaceBlue,
-              }}
-              onPress={() => {
-                const notesUrl = `https://scilearnbackend.onrender.com/api/courses/notes/${lessonId}/`;
-                if (Platform.OS === 'web') {
-                  window.open(notesUrl, '_blank');
-                } else {
-                  Alert.alert('Notes', 'PDF notes download coming soon!');
-                }
-              }}
-            >
-              <Text style={{
-                color: COLORS.blue, fontFamily: 'monospace',
-                fontWeight: '900', letterSpacing: 2,
-              }}>📄 DOWNLOAD LESSON NOTES</Text>
-            </TouchableOpacity>
+
+        {/* Downloaded Videos Info */}
+        {isDownloaded && Platform.OS !== 'web' && (
+          <View style={styles.offlineInfoCard}>
+            <Text style={styles.offlineInfoTitle}>📱 OFFLINE PLAYBACK</Text>
+            <Text style={styles.offlineInfoText}>
+              This video is saved offline. You can watch it:{'\n'}
+              • Inside SCI LEARN app (plays automatically){'\n'}
+              • From your Files app in "SCI LEARN Videos" folder{'\n'}
+              • Using any video player on your phone
+            </Text>
           </View>
         )}
 
@@ -313,8 +439,7 @@ const styles = StyleSheet.create({
   backBtn: {
     alignSelf: 'flex-start',
     borderWidth: 1, borderColor: COLORS.border,
-    paddingVertical: 6, paddingHorizontal: 14,
-    marginBottom: 16,
+    paddingVertical: 6, paddingHorizontal: 14, marginBottom: 16,
   },
   backText: {
     color: COLORS.green, fontFamily: 'monospace',
@@ -338,8 +463,8 @@ const styles = StyleSheet.create({
     fontWeight: '900', fontSize: 11, letterSpacing: 1,
   },
   videoBox: {
-    margin: 16,
-    borderWidth: 1, borderColor: COLORS.border,
+    margin: 16, borderWidth: 1,
+    borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
     minHeight: 220, justifyContent: 'center',
     overflow: 'hidden',
@@ -366,6 +491,56 @@ const styles = StyleSheet.create({
     fontWeight: '900', fontSize: 18,
   },
   webPlayer: { width: '100%', height: 220 },
+  downloadSection: {
+    marginHorizontal: 16, marginBottom: 16,
+  },
+  downloadedBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 8, backgroundColor: COLORS.surfaceGreen,
+    borderWidth: 1, borderColor: COLORS.green,
+    padding: 10, marginBottom: 8,
+  },
+  downloadedIcon: { fontSize: 16 },
+  downloadedText: {
+    color: COLORS.green, fontFamily: 'monospace',
+    fontSize: 11, fontWeight: '700', letterSpacing: 1,
+  },
+  progressContainer: { marginBottom: 8 },
+  progressText: {
+    color: COLORS.textDim, fontFamily: 'monospace',
+    fontSize: 10, letterSpacing: 2, marginBottom: 6,
+  },
+  progressBar: {
+    height: 4, backgroundColor: COLORS.border,
+    borderRadius: 2, overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%', backgroundColor: COLORS.green,
+  },
+  downloadBtn: {
+    borderWidth: 1, borderColor: COLORS.blue,
+    padding: 14, alignItems: 'center',
+    backgroundColor: COLORS.surfaceBlue,
+  },
+  downloadBtnActive: {
+    borderColor: COLORS.red,
+    backgroundColor: 'rgba(187,0,0,0.05)',
+  },
+  downloadBtnLoading: {
+    borderColor: COLORS.textDim, opacity: 0.7,
+  },
+  downloadBtnInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+  },
+  downloadBtnIcon: { fontSize: 18 },
+  downloadBtnText: {
+    color: COLORS.white, fontFamily: 'monospace',
+    fontWeight: '700', letterSpacing: 2, fontSize: 13,
+  },
+  storageInfo: {
+    color: COLORS.textDim, fontFamily: 'monospace',
+    fontSize: 10, marginTop: 8, letterSpacing: 1,
+  },
   unlockSection: { marginHorizontal: 16, marginBottom: 16 },
   unlockInfo: {
     flexDirection: 'row', gap: 12,
@@ -408,6 +583,19 @@ const styles = StyleSheet.create({
   successSub: {
     color: COLORS.textDim, fontFamily: 'monospace',
     fontSize: 11, marginTop: 4,
+  },
+  offlineInfoCard: {
+    marginHorizontal: 16, marginBottom: 16,
+    borderWidth: 1, borderColor: COLORS.blue,
+    backgroundColor: COLORS.surfaceBlue, padding: 16,
+  },
+  offlineInfoTitle: {
+    color: COLORS.blue, fontFamily: 'monospace',
+    fontWeight: '900', fontSize: 12, letterSpacing: 2, marginBottom: 8,
+  },
+  offlineInfoText: {
+    color: COLORS.textDim, fontFamily: 'monospace',
+    fontSize: 12, lineHeight: 22,
   },
   footer: {
     textAlign: 'center', color: COLORS.textDim,

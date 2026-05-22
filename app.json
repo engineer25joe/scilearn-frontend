@@ -18,8 +18,14 @@
       "expo-router",
       "expo-font",
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      "react-native-video"
     ],
+    "permissions": [
+     "READ_EXTERNAL_STORAGE",
+     "WRITE_EXTERNAL_STORAGE",
+     "MANAGE_EXTERNAL_STORAGE"
+    ]
     "extra": {
       "router": {},
       "eas": {
