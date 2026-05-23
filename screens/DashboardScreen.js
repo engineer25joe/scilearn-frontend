@@ -252,6 +252,8 @@ export default function DashboardScreen({ navigation }) {
             { title: 'Django Backend', icon: '⚡', tokens: '50' },
             { title: 'React Native', icon: '📱', tokens: '45' },
             { title: 'Data Science', icon: '📊', tokens: '60' },
+            { icon: '🔥', label: 'STREAK', screen: 'Streak' },
+            { icon: '🎁', label: 'REFERRAL', screen: 'Streak' },
           ].map((course, i) => (
             <TouchableOpacity
               key={i}
