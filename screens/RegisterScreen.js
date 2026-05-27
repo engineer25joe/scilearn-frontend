@@ -103,12 +103,17 @@ export default function RegisterScreen({ navigation }) {
         }),
       });
       const data = await res.json();
+      
       if (res.ok) {
-        await saveUserData(data);
-        navigation.replace('Dashboard');
+       navigation.navigate('OTP', {
+         username: form.username,
+         email: form.email,
+         phone: form.phone,
+        });
       } else {
-        Alert.alert('Error', data.error || 'Registration failed');
+       Alert.alert('Error', data.error || 'Registration failed');
       }
+
     } catch {
       Alert.alert('Error', 'Cannot connect to server');
     }
