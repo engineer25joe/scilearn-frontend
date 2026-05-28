@@ -27,9 +27,9 @@ export default function OTPScreen({ navigation, route }) {
         toValue: 1, tension: 50, friction: 8, useNativeDriver: true,
       }),
     ]).start();
-
-    // Start countdown
     startCountdown();
+    // Focus first input
+    setTimeout(() => inputRefs.current[0]?.focus(), 500);
   }, []);
 
   const startCountdown = () => {
@@ -52,14 +52,14 @@ export default function OTPScreen({ navigation, route }) {
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Auto focus next input
+    // Auto focus next
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto submit when all 6 digits entered
+    // Auto submit on last digit
     if (index === 5 && value) {
-      const fullOtp = [...newOtp].join('');
+      const fullOtp = newOtp.join('');
       if (fullOtp.length === 6) {
         verifyOTP(fullOtp);
       }
@@ -104,8 +104,11 @@ export default function OTPScreen({ navigation, route }) {
         await saveUserData(data);
         Alert.alert(
           '✅ Verified!',
-          'Your account has been verified successfully! Welcome to SCI LEARN! 🇰🇪',
-          [{ text: 'START LEARNING →', onPress: () => navigation.replace('Dashboard') }]
+          `Welcome to SCI LEARN ${username}! 🇰🇪\n\nYour account is verified and ready to go!`,
+          [{
+            text: 'START LEARNING →',
+            onPress: () => navigation.replace('Dashboard')
+          }]
         );
       } else {
         Alert.alert('❌ Error', data.error || 'Invalid OTP');
@@ -132,7 +135,7 @@ export default function OTPScreen({ navigation, route }) {
       );
       const data = await res.json();
       if (res.ok) {
-        Alert.alert('✅ Sent!', 'New OTP sent to your phone and email!');
+        Alert.alert('✅ Sent!', 'New OTP sent to your email!');
         startCountdown();
         setOtp(['', '', '', '', '', '']);
         inputRefs.current[0]?.focus();
@@ -160,7 +163,7 @@ export default function OTPScreen({ navigation, route }) {
         { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }
       ]}>
 
-        {/* Icon */}
+        {/* Shield Icon */}
         <View style={styles.iconBox}>
           <Text style={styles.icon}>🔐</Text>
         </View>
@@ -171,21 +174,21 @@ export default function OTPScreen({ navigation, route }) {
           VERIFY<Text style={styles.titleAccent}>.</Text>
         </Text>
 
-        {/* Description */}
-        <View style={styles.descBox}>
-          <Text style={styles.desc}>
-            We sent a 6-digit OTP to:
+        {/* Info Box */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoText}>
+            We sent a 6-digit OTP to your email:
           </Text>
-          {phone && (
-            <Text style={styles.descHighlight}>
-              📱 {phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')}
-            </Text>
-          )}
-          {email && (
-            <Text style={styles.descHighlight}>
+          {email ? (
+            <Text style={styles.infoEmail}>
               📧 {email.replace(/(.{2})(.*)(@.*)/, '$1***$3')}
             </Text>
+          ) : (
+            <Text style={styles.infoEmail}>📧 your registered email</Text>
           )}
+          <Text style={styles.infoNote}>
+            ⚠️ Check your spam folder if not received
+          </Text>
         </View>
 
         {/* OTP Input Boxes */}
@@ -196,7 +199,7 @@ export default function OTPScreen({ navigation, route }) {
               ref={ref => inputRefs.current[index] = ref}
               style={[
                 styles.otpBox,
-                digit && styles.otpBoxFilled,
+                digit ? styles.otpBoxFilled : null,
               ]}
               value={digit}
               onChangeText={val => handleOtpChange(val.slice(-1), index)}
@@ -224,7 +227,7 @@ export default function OTPScreen({ navigation, route }) {
 
         {/* Resend OTP */}
         <View style={styles.resendRow}>
-          <Text style={styles.resendLabel}>Didn't receive OTP? </Text>
+          <Text style={styles.resendLabel}>Didn't receive OTP?  </Text>
           {canResend ? (
             <TouchableOpacity onPress={resendOTP} disabled={resending}>
               {resending ? (
@@ -234,15 +237,16 @@ export default function OTPScreen({ navigation, route }) {
               )}
             </TouchableOpacity>
           ) : (
-            <Text style={styles.countdown}>
-              Resend in {countdown}s
-            </Text>
+            <Text style={styles.countdown}>Resend in {countdown}s</Text>
           )}
         </View>
 
         {/* Back to login */}
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.backLink}>← BACK TO LOGIN</Text>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={styles.backText}>← BACK TO LOGIN</Text>
         </TouchableOpacity>
 
       </Animated.View>
@@ -254,60 +258,93 @@ export default function OTPScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, backgroundColor: COLORS.bg,
+    flex: 1,
+    backgroundColor: COLORS.bg,
     justifyContent: 'center',
   },
   flagBanner: {
-    flexDirection: 'row', height: 6,
-    position: 'absolute', top: 0, left: 0, right: 0,
+    flexDirection: 'row',
+    height: 6,
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
   },
   flagStripe: { flex: 1 },
   content: {
-    padding: 28, alignItems: 'center',
+    padding: 28,
+    alignItems: 'center',
   },
   iconBox: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 80, height: 80,
+    borderRadius: 40,
     backgroundColor: COLORS.surfaceGreen,
-    borderWidth: 2, borderColor: COLORS.green,
-    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.green,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 24,
   },
   icon: { fontSize: 36 },
   tag: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 8,
+    color: COLORS.textDim,
+    fontSize: 10,
+    letterSpacing: 3,
+    fontFamily: 'monospace',
+    marginBottom: 8,
   },
   title: {
-    fontSize: 36, fontWeight: '900',
-    color: COLORS.green, fontFamily: 'monospace',
+    fontSize: 36,
+    fontWeight: '900',
+    color: COLORS.green,
+    fontFamily: 'monospace',
     marginBottom: 24,
   },
   titleAccent: { color: COLORS.amber },
-  descBox: {
-    borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-    padding: 16, width: '100%',
-    marginBottom: 28, alignItems: 'center',
+  infoBox: {
+    borderWidth: 1,
+    borderColor: COLORS.blue,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.blue,
+    backgroundColor: COLORS.surfaceBlue,
+    padding: 16,
+    width: '100%',
+    marginBottom: 28,
+    alignItems: 'center',
   },
-  desc: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 12, marginBottom: 8,
+  infoText: {
+    color: COLORS.textDim,
+    fontFamily: 'monospace',
+    fontSize: 12,
+    marginBottom: 8,
   },
-  descHighlight: {
-    color: COLORS.white, fontFamily: 'monospace',
-    fontSize: 13, fontWeight: '700', marginTop: 4,
+  infoEmail: {
+    color: COLORS.white,
+    fontFamily: 'monospace',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  infoNote: {
+    color: COLORS.amber,
+    fontFamily: 'monospace',
+    fontSize: 10,
+    textAlign: 'center',
   },
   otpRow: {
-    flexDirection: 'row', gap: 8,
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 28,
   },
   otpBox: {
-    width: 46, height: 56,
-    borderWidth: 2, borderColor: COLORS.border,
+    width: 46, height: 58,
+    borderWidth: 2,
+    borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
     color: COLORS.white,
-    fontSize: 24, fontWeight: '900',
-    textAlign: 'center', fontFamily: 'monospace',
+    fontSize: 24,
+    fontWeight: '900',
+    textAlign: 'center',
+    fontFamily: 'monospace',
+    borderRadius: 4,
   },
   otpBoxFilled: {
     borderColor: COLORS.green,
@@ -316,38 +353,61 @@ const styles = StyleSheet.create({
   },
   verifyBtn: {
     backgroundColor: COLORS.green,
-    padding: 16, width: '100%',
+    padding: 16,
+    width: '100%',
     alignItems: 'center',
     borderBottomWidth: 4,
     borderBottomColor: COLORS.greenLight,
     marginBottom: 20,
+    borderRadius: 4,
   },
   verifyBtnText: {
-    color: COLORS.white, fontFamily: 'monospace',
-    fontWeight: '900', letterSpacing: 2, fontSize: 14,
+    color: COLORS.white,
+    fontFamily: 'monospace',
+    fontWeight: '900',
+    letterSpacing: 2,
+    fontSize: 14,
   },
   resendRow: {
-    flexDirection: 'row', alignItems: 'center',
-    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   resendLabel: {
-    color: COLORS.textDim, fontFamily: 'monospace', fontSize: 12,
+    color: COLORS.textDim,
+    fontFamily: 'monospace',
+    fontSize: 12,
   },
   resendBtn: {
-    color: COLORS.green, fontFamily: 'monospace',
-    fontWeight: '700', fontSize: 12,
+    color: COLORS.green,
+    fontFamily: 'monospace',
+    fontWeight: '700',
+    fontSize: 12,
   },
   countdown: {
-    color: COLORS.amber, fontFamily: 'monospace', fontSize: 12,
+    color: COLORS.amber,
+    fontFamily: 'monospace',
+    fontSize: 12,
   },
-  backLink: {
-    color: COLORS.blue, fontFamily: 'monospace',
-    fontSize: 12, letterSpacing: 2,
+  backBtn: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  backText: {
+    color: COLORS.blue,
+    fontFamily: 'monospace',
+    fontSize: 12,
+    letterSpacing: 2,
   },
   footer: {
-    textAlign: 'center', color: COLORS.textDim,
-    fontSize: 11, marginBottom: 32,
-    fontFamily: 'monospace', position: 'absolute',
-    bottom: 0, left: 0, right: 0,
+    textAlign: 'center',
+    color: COLORS.textDim,
+    fontSize: 11,
+    fontFamily: 'monospace',
+    position: 'absolute',
+    bottom: 20,
+    left: 0, right: 0,
   },
 });
