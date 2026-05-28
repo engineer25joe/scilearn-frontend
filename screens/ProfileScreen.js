@@ -2,10 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, ActivityIndicator,
-  Alert, Platform, Animated
+  Alert, Platform, Animated, Image
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import COLORS from '../constants/colors';
+import Avatar from '../components/Avatar';
 
 function AnimatedButton({ onPress, label, loading, style, textStyle }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -14,8 +17,12 @@ function AnimatedButton({ onPress, label, loading, style, textStyle }) {
       <TouchableOpacity
         style={[styles.btn, style]}
         onPress={onPress}
-        onPressIn={() => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start()}
-        onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start()}
+        onPressIn={() => Animated.spring(scale, {
+          toValue: 0.96, useNativeDriver: true, speed: 50
+        }).start()}
+        onPressOut={() => Animated.spring(scale, {
+          toValue: 1, useNativeDriver: true, speed: 50
+        }).start()}
         disabled={loading}
         activeOpacity={1}
       >
@@ -32,6 +39,7 @@ export default function ProfileScreen({ navigation }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -39,6 +47,7 @@ export default function ProfileScreen({ navigation }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState(null);
   const [focusedInput, setFocusedInput] = useState(null);
   const headerOpacity = useRef(new Animated.Value(0)).current;
 
@@ -72,8 +81,131 @@ export default function ProfileScreen({ navigation }) {
       setUsername(parsed.username || '');
       setEmail(parsed.email || '');
       setPhone(parsed.phone || '');
+      setAvatarUrl(parsed.avatar_url || null);
+
+      // Fetch fresh avatar from server
+      try {
+        const res = await fetch(
+          'https://scilearnbackend.onrender.com/api/users/avatar/',
+          { headers: { 'X-Username': parsed.username } }
+        );
+        const data = await res.json();
+        if (res.ok && data.avatar_url) {
+          setAvatarUrl(data.avatar_url);
+          parsed.avatar_url = data.avatar_url;
+          await saveUserData(parsed);
+        }
+      } catch {}
     }
     setLoading(false);
+  };
+
+  const pickAvatar = async () => {
+    Alert.alert(
+      '📸 Change Avatar',
+      'Choose an option',
+      [
+        {
+          text: '📷 Take Photo',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission needed', 'Camera permission is required');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+            if (!result.canceled) {
+              await uploadAvatar(result.assets[0].uri);
+            }
+          }
+        },
+        {
+          text: '🖼️ Choose from Gallery',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission needed', 'Gallery permission is required');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+            if (!result.canceled) {
+              await uploadAvatar(result.assets[0].uri);
+            }
+          }
+        },
+        avatarUrl && {
+          text: '🗑️ Remove Avatar',
+          style: 'destructive',
+          onPress: removeAvatar,
+        },
+        { text: 'CANCEL', style: 'cancel' },
+      ].filter(Boolean)
+    );
+  };
+
+  const uploadAvatar = async (uri) => {
+    setUploadingAvatar(true);
+    try {
+      // Compress and resize image
+      const manipulated = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 400, height: 400 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      const userData = await getUserData();
+      const user = JSON.parse(userData);
+
+      const formData = new FormData();
+      formData.append('avatar', {
+        uri: manipulated.uri,
+        type: 'image/jpeg',
+        name: `avatar_${user.username}.jpg`,
+      });
+
+      const res = await fetch(
+        'https://scilearnbackend.onrender.com/api/users/avatar/upload/',
+        {
+          method: 'POST',
+          headers: { 'X-Username': user.username },
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setAvatarUrl(data.avatar_url);
+        user.avatar_url = data.avatar_url;
+        await saveUserData(user);
+        Alert.alert('✅ Success', 'Avatar updated!');
+      } else {
+        Alert.alert('Error', data.error || 'Upload failed');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Could not upload avatar: ' + e.message);
+    }
+    setUploadingAvatar(false);
+  };
+
+  const removeAvatar = async () => {
+    setAvatarUrl(null);
+    const userData = await getUserData();
+    if (userData) {
+      const user = JSON.parse(userData);
+      user.avatar_url = null;
+      await saveUserData(user);
+    }
   };
 
   const updateProfile = async () => {
@@ -97,7 +229,7 @@ export default function ProfileScreen({ navigation }) {
         const updated = { ...user, username, email, phone };
         await saveUserData(updated);
         setUser(updated);
-        Alert.alert('✅ Success', 'Profile updated successfully!');
+        Alert.alert('✅ Success', 'Profile updated!');
       } else {
         Alert.alert('Error', data.error || 'Update failed');
       }
@@ -109,11 +241,11 @@ export default function ProfileScreen({ navigation }) {
 
   const changePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill all password fields');
+      Alert.alert('Error', 'Fill all password fields');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match');
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
     if (newPassword.length < 8) {
@@ -139,9 +271,9 @@ export default function ProfileScreen({ navigation }) {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        Alert.alert('✅ Success', 'Password changed successfully!');
+        Alert.alert('✅ Success', 'Password changed!');
       } else {
-        Alert.alert('Error', data.error || 'Password change failed');
+        Alert.alert('Error', data.error || 'Failed');
       }
     } catch {
       Alert.alert('Error', 'Cannot connect to server');
@@ -152,7 +284,7 @@ export default function ProfileScreen({ navigation }) {
   const deleteAccount = () => {
     Alert.alert(
       '⚠️ Delete Account',
-      'Are you sure? This cannot be undone!',
+      'This cannot be undone! All your data will be lost.',
       [
         { text: 'CANCEL', style: 'cancel' },
         {
@@ -217,18 +349,38 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
         <Text style={styles.tag}>// MY ACCOUNT</Text>
 
-        {/* Avatar */}
-        <View style={styles.avatarRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.username?.charAt(0)?.toUpperCase() || 'U'}
-            </Text>
-          </View>
+        {/* Avatar Section */}
+        <View style={styles.avatarSection}>
+          <TouchableOpacity onPress={pickAvatar} disabled={uploadingAvatar}>
+            <View style={styles.avatarWrapper}>
+              {uploadingAvatar ? (
+                <View style={styles.avatarLoading}>
+                  <ActivityIndicator color={COLORS.white} />
+                </View>
+              ) : (
+                <Avatar
+                  uri={avatarUrl}
+                  username={user?.username}
+                  size={80}
+                  fontSize={32}
+                />
+              )}
+              <View style={styles.avatarEditBadge}>
+                <Text style={styles.avatarEditIcon}>📷</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
           <View style={styles.avatarInfo}>
             <Text style={styles.avatarName}>
               {user?.username?.toUpperCase()}
             </Text>
             <Text style={styles.avatarEmail}>{user?.email}</Text>
+            <TouchableOpacity onPress={pickAvatar} style={styles.changeAvatarBtn}>
+              <Text style={styles.changeAvatarText}>
+                {uploadingAvatar ? 'UPLOADING...' : '📸 CHANGE PHOTO'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -240,17 +392,17 @@ export default function ProfileScreen({ navigation }) {
             </Text>
             <Text style={styles.statLabel}>TOKENS</Text>
           </View>
-          <View style={[styles.statItem, { borderColor: COLORS.blue }]}>
-            <Text style={[styles.statNum, { color: COLORS.blue }]}>
-              📚 0
-            </Text>
-            <Text style={styles.statLabel}>COURSES</Text>
-          </View>
           <View style={[styles.statItem, { borderColor: COLORS.amber }]}>
             <Text style={[styles.statNum, { color: COLORS.amber }]}>
+              {user?.is_verified ? '✅' : '❌'}
+            </Text>
+            <Text style={styles.statLabel}>VERIFIED</Text>
+          </View>
+          <View style={[styles.statItem, { borderColor: COLORS.blue }]}>
+            <Text style={[styles.statNum, { color: COLORS.blue }]}>
               🏆 0
             </Text>
-            <Text style={styles.statLabel}>COMPLETED</Text>
+            <Text style={styles.statLabel}>COURSES</Text>
           </View>
         </View>
       </Animated.View>
@@ -260,10 +412,19 @@ export default function ProfileScreen({ navigation }) {
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
-            style={[styles.tab, activeTab === tab.key && { borderBottomColor: tab.color, borderBottomWidth: 3 }]}
+            style={[
+              styles.tab,
+              activeTab === tab.key && {
+                borderBottomColor: tab.color,
+                borderBottomWidth: 3,
+              }
+            ]}
             onPress={() => setActiveTab(tab.key)}
           >
-            <Text style={[styles.tabText, activeTab === tab.key && { color: tab.color }]}>
+            <Text style={[
+              styles.tabText,
+              activeTab === tab.key && { color: tab.color }
+            ]}>
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -328,8 +489,8 @@ export default function ProfileScreen({ navigation }) {
             value={currentPassword}
             onChangeText={setCurrentPassword}
             secureTextEntry
-            placeholderTextColor={COLORS.textDim}
             placeholder="••••••••"
+            placeholderTextColor={COLORS.textDim}
             onFocus={() => setFocusedInput('current')}
             onBlur={() => setFocusedInput(null)}
           />
@@ -340,8 +501,8 @@ export default function ProfileScreen({ navigation }) {
             value={newPassword}
             onChangeText={setNewPassword}
             secureTextEntry
-            placeholderTextColor={COLORS.textDim}
             placeholder="min. 8 characters"
+            placeholderTextColor={COLORS.textDim}
             onFocus={() => setFocusedInput('new')}
             onBlur={() => setFocusedInput(null)}
           />
@@ -352,8 +513,8 @@ export default function ProfileScreen({ navigation }) {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
-            placeholderTextColor={COLORS.textDim}
             placeholder="••••••••"
+            placeholderTextColor={COLORS.textDim}
             onFocus={() => setFocusedInput('confirm')}
             onBlur={() => setFocusedInput(null)}
           />
@@ -376,7 +537,7 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.dangerIcon}>⚠️</Text>
             <Text style={styles.dangerText}>
               Deleting your account will permanently remove all your data,
-              tokens, progress and certificates. This action cannot be undone!
+              tokens, progress and certificates. This cannot be undone!
             </Text>
           </View>
 
@@ -425,21 +586,25 @@ const styles = StyleSheet.create({
     color: COLORS.textDim, fontSize: 10,
     letterSpacing: 3, fontFamily: 'monospace', marginBottom: 16,
   },
-  avatarRow: {
+  avatarSection: {
     flexDirection: 'row', alignItems: 'center',
     gap: 16, marginBottom: 20,
   },
-  avatar: {
-    width: 64, height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.green,
+  avatarWrapper: { position: 'relative' },
+  avatarLoading: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: COLORS.surface,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: COLORS.greenLight,
+    borderWidth: 2, borderColor: COLORS.green,
   },
-  avatarText: {
-    color: COLORS.white, fontSize: 28,
-    fontWeight: '900', fontFamily: 'monospace',
+  avatarEditBadge: {
+    position: 'absolute', bottom: -4, right: -4,
+    backgroundColor: COLORS.blue,
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: COLORS.bg,
   },
+  avatarEditIcon: { fontSize: 12 },
   avatarInfo: { flex: 1 },
   avatarName: {
     color: COLORS.white, fontSize: 18,
@@ -447,7 +612,16 @@ const styles = StyleSheet.create({
   },
   avatarEmail: {
     color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 12, marginTop: 4,
+    fontSize: 11, marginTop: 4,
+  },
+  changeAvatarBtn: {
+    marginTop: 8, alignSelf: 'flex-start',
+    borderWidth: 1, borderColor: COLORS.blue,
+    paddingVertical: 4, paddingHorizontal: 10,
+  },
+  changeAvatarText: {
+    color: COLORS.blue, fontFamily: 'monospace',
+    fontSize: 10, letterSpacing: 1,
   },
   statsRow: {
     flexDirection: 'row', gap: 8,
@@ -470,9 +644,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   tab: {
-    flex: 1, padding: 16,
-    alignItems: 'center', borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
+    flex: 1, padding: 16, alignItems: 'center',
+    borderBottomWidth: 3, borderBottomColor: 'transparent',
   },
   tabText: {
     color: COLORS.textDim, fontFamily: 'monospace',
@@ -491,15 +664,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border,
     color: COLORS.text, padding: 14,
     marginBottom: 20, fontFamily: 'monospace',
-    fontSize: 14, backgroundColor: COLORS.bg,
-    borderRadius: 4,
+    fontSize: 14, backgroundColor: COLORS.bg, borderRadius: 4,
   },
-  inputFocused: {
-    borderColor: COLORS.green, borderWidth: 1.5,
-  },
-  inputFocusedBlue: {
-    borderColor: COLORS.blue, borderWidth: 1.5,
-  },
+  inputFocused: { borderColor: COLORS.green, borderWidth: 1.5 },
+  inputFocusedBlue: { borderColor: COLORS.blue, borderWidth: 1.5 },
   btn: {
     backgroundColor: COLORS.green,
     padding: 16, alignItems: 'center',
@@ -524,8 +692,7 @@ const styles = StyleSheet.create({
   deleteBtn: {
     backgroundColor: 'transparent',
     borderWidth: 2, borderColor: COLORS.red,
-    padding: 16, alignItems: 'center',
-    borderRadius: 4,
+    padding: 16, alignItems: 'center', borderRadius: 4,
   },
   deleteBtnText: {
     color: COLORS.red, fontWeight: '900',
