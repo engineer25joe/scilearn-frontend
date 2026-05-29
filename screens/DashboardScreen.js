@@ -5,7 +5,7 @@ import {
   Animated, TextInput
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import COLORS from '../constants/colors';
+import { useTheme } from '../context/ThemeContext';
 import Avatar from '../components/Avatar';
 
 function AnimatedCard({ children, style, delay = 0 }) {
@@ -30,13 +30,21 @@ function AnimatedCard({ children, style, delay = 0 }) {
   );
 }
 
-function GridButton({ icon, label, onPress, color }) {
+function GridButton({ icon, label, onPress, color, colors }) {
   const scale = useRef(new Animated.Value(1)).current;
 
   return (
     <Animated.View style={{ transform: [{ scale }], width: '47%' }}>
       <TouchableOpacity
-        style={[styles.gridItem, { borderTopColor: color || COLORS.green }]}
+        style={[{
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: 20,
+          alignItems: 'center',
+          backgroundColor: colors.surface,
+          borderTopWidth: 3,
+          borderTopColor: color || colors.green,
+        }]}
         onPress={onPress}
         onPressIn={() => Animated.spring(scale, {
           toValue: 0.95, useNativeDriver: true, speed: 50
@@ -46,14 +54,18 @@ function GridButton({ icon, label, onPress, color }) {
         }).start()}
         activeOpacity={1}
       >
-        <Text style={styles.gridIcon}>{icon}</Text>
-        <Text style={styles.gridLabel}>{label}</Text>
+        <Text style={{ fontSize: 28, marginBottom: 10 }}>{icon}</Text>
+        <Text style={{
+          color: colors.text, fontSize: 11,
+          letterSpacing: 2, fontFamily: 'monospace',
+        }}>{label}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
 }
 
 export default function DashboardScreen({ navigation }) {
+  const { colors } = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -115,7 +127,6 @@ export default function DashboardScreen({ navigation }) {
       const parsed = JSON.parse(userData);
       setUser(parsed);
 
-      // Fetch fresh data in parallel
       const [freshBalance, unread] = await Promise.all([
         fetchFreshBalance(parsed.username),
         fetchUnreadCount(parsed.username),
@@ -148,28 +159,35 @@ export default function DashboardScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color={COLORS.green} size="large" />
-        <Text style={styles.loadingText}>LOADING...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator color={colors.green} size="large" />
+        <Text style={[styles.loadingText, { color: colors.green }]}>
+          LOADING...
+        </Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.bg }]}
+      showsVerticalScrollIndicator={false}
+    >
 
-      {/* Top Flag Banner */}
+      {/* Flag Banner */}
       <View style={styles.flagBanner}>
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
+        <View style={[styles.flagStripe, { backgroundColor: colors.black }]} />
+        <View style={[styles.flagStripe, { backgroundColor: colors.red }]} />
+        <View style={[styles.flagStripe, { backgroundColor: colors.green }]} />
       </View>
 
       {/* Header */}
       <AnimatedCard>
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.headerLeft}>
-            <Text style={styles.tag}>// DASHBOARD</Text>
+            <Text style={[styles.tag, { color: colors.textDim }]}>
+              // DASHBOARD
+            </Text>
             <View style={styles.welcomeRow}>
               <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
                 <Avatar
@@ -180,8 +198,10 @@ export default function DashboardScreen({ navigation }) {
                 />
               </TouchableOpacity>
               <View>
-                <Text style={styles.welcome}>HABARI,</Text>
-                <Text style={styles.username}>
+                <Text style={[styles.welcome, { color: colors.textDim }]}>
+                  HABARI,
+                </Text>
+                <Text style={[styles.username, { color: colors.green }]}>
                   {user?.username?.toUpperCase() || 'ENGINEER'} 👋
                 </Text>
               </View>
@@ -189,14 +209,16 @@ export default function DashboardScreen({ navigation }) {
           </View>
 
           <View style={styles.headerRight}>
-            {/* Notifications Bell */}
             <TouchableOpacity
-              style={styles.bellBtn}
+              style={[styles.bellBtn, {
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+              }]}
               onPress={() => navigation.navigate('Notifications')}
             >
               <Text style={styles.bellIcon}>🔔</Text>
               {unreadCount > 0 && (
-                <View style={styles.bellBadge}>
+                <View style={[styles.bellBadge, { backgroundColor: colors.red }]}>
                   <Text style={styles.bellBadgeText}>
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </Text>
@@ -204,9 +226,13 @@ export default function DashboardScreen({ navigation }) {
               )}
             </TouchableOpacity>
 
-            {/* Logout */}
-            <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-              <Text style={styles.logoutText}>↪ OUT</Text>
+            <TouchableOpacity
+              onPress={logout}
+              style={[styles.logoutBtn, { borderColor: colors.red }]}
+            >
+              <Text style={[styles.logoutText, { color: colors.red }]}>
+                ↪ OUT
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -214,19 +240,24 @@ export default function DashboardScreen({ navigation }) {
 
       {/* Search Bar */}
       <AnimatedCard delay={100}>
-        <View style={styles.searchContainer}>
+        <View style={[styles.searchContainer, {
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+        }]}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search courses..."
-            placeholderTextColor={COLORS.textDim}
+            placeholderTextColor={colors.textDim}
             value={search}
             onChangeText={setSearch}
             onSubmitEditing={() => navigation.navigate('Courses')}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch('')}>
-              <Text style={styles.clearSearch}>✕</Text>
+              <Text style={[styles.clearSearch, { color: colors.textDim }]}>
+                ✕
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -234,20 +265,30 @@ export default function DashboardScreen({ navigation }) {
 
       {/* Token Balance Card */}
       <AnimatedCard delay={200}>
-        <View style={styles.tokenCard}>
+        <View style={[styles.tokenCard, {
+          borderColor: colors.green,
+          borderLeftColor: colors.green,
+          backgroundColor: colors.surfaceGreen,
+        }]}>
           <View style={styles.tokenLeft}>
-            <Text style={styles.tokenLabel}>// TOKEN BALANCE</Text>
-            <Text style={styles.tokenBalance}>
+            <Text style={[styles.tokenLabel, { color: colors.textDim }]}>
+              // TOKEN BALANCE
+            </Text>
+            <Text style={[styles.tokenBalance, { color: colors.green }]}>
               {user?.tokens || 0}
               <Text style={styles.tokenUnit}> 🪙</Text>
             </Text>
-            <Text style={styles.tokenHint}>1 token = 1 KES = 1 minute</Text>
+            <Text style={[styles.tokenHint, { color: colors.textDim }]}>
+              1 token = 1 KES = 1 minute
+            </Text>
           </View>
           <TouchableOpacity
-            style={styles.topupBtn}
+            style={[styles.topupBtn, { backgroundColor: colors.green }]}
             onPress={() => navigation.navigate('Tokens')}
           >
-            <Text style={styles.topupText}>TOP UP</Text>
+            <Text style={[styles.topupText, { color: colors.white }]}>
+              TOP UP
+            </Text>
             <Text style={styles.topupIcon}>💳</Text>
           </TouchableOpacity>
         </View>
@@ -255,129 +296,147 @@ export default function DashboardScreen({ navigation }) {
 
       {/* Quick Actions */}
       <AnimatedCard delay={300}>
-        <Text style={styles.sectionTitle}>// QUICK ACCESS</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
+          // QUICK ACCESS
+        </Text>
         <View style={styles.grid}>
-          <GridButton
-            icon="📚" label="COURSES"
+          <GridButton icon="📚" label="COURSES"
             onPress={() => navigation.navigate('Courses')}
-            color={COLORS.green}
-          />
-          <GridButton
-            icon="🪙" label="TOKENS"
+            color={colors.green} colors={colors} />
+          <GridButton icon="🪙" label="TOKENS"
             onPress={() => navigation.navigate('Tokens')}
-            color={COLORS.amber}
-          />
-          <GridButton
-            icon="👤" label="PROFILE"
+            color={colors.amber} colors={colors} />
+          <GridButton icon="👤" label="PROFILE"
             onPress={() => navigation.navigate('Profile')}
-            color={COLORS.blue}
-          />
-          <GridButton
-            icon="🤖" label="Q&A AI"
+            color={colors.blue} colors={colors} />
+          <GridButton icon="🤖" label="Q&A AI"
             onPress={() => navigation.navigate('QA')}
-            color={COLORS.blue}
-          />
-          <GridButton
-            icon="🔥" label="STREAK"
+            color={colors.blue} colors={colors} />
+          <GridButton icon="🔥" label="STREAK"
             onPress={() => navigation.navigate('Streak')}
-            color={COLORS.red}
-          />
-          <GridButton
-            icon="🎁" label="REFERRAL"
+            color={colors.red} colors={colors} />
+          <GridButton icon="🎁" label="REFERRAL"
             onPress={() => navigation.navigate('Streak')}
-            color={COLORS.amber}
-          />
+            color={colors.amber} colors={colors} />
+          <GridButton icon="🔔" label="ALERTS"
+            onPress={() => navigation.navigate('Notifications')}
+            color={colors.green} colors={colors} />
+          <GridButton icon="🎨" label="THEME"
+            onPress={() => navigation.navigate('Theme')}
+            color={colors.blue} colors={colors} />
         </View>
       </AnimatedCard>
 
       {/* Trending Courses */}
       <AnimatedCard delay={400}>
         <View style={styles.trendingHeader}>
-          <Text style={styles.sectionTitle}>// TRENDING COURSES 🔥</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
+            // TRENDING COURSES 🔥
+          </Text>
           <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
-            <Text style={styles.seeAll}>SEE ALL →</Text>
+            <Text style={[styles.seeAll, { color: colors.green }]}>
+              SEE ALL →
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {trendingCourses.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.trendingScroll}
-          >
-            {trendingCourses.map((course, i) => {
-              const colors = [COLORS.green, COLORS.blue, COLORS.red, COLORS.amber];
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.trendingScroll}
+        >
+          {trendingCourses.length > 0 ? (
+            trendingCourses.map((course, i) => {
+              const cardColors = [colors.green, colors.blue, colors.red, colors.amber];
+              const cardColor = cardColors[i % cardColors.length];
               return (
                 <TouchableOpacity
                   key={course.id}
-                  style={[styles.trendingCard, { borderTopColor: colors[i % colors.length] }]}
+                  style={[styles.trendingCard, {
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                    borderTopColor: cardColor,
+                  }]}
                   onPress={() => navigation.navigate('Courses')}
                 >
                   <Text style={styles.trendingEmoji}>📘</Text>
-                  <Text style={styles.trendingTitle} numberOfLines={2}>
+                  <Text style={[styles.trendingTitle, { color: colors.text }]}
+                    numberOfLines={2}>
                     {course.title}
                   </Text>
-                  <Text style={styles.trendingDesc} numberOfLines={1}>
-                    {course.description}
-                  </Text>
-                  <Text style={[styles.trendingAction, { color: colors[i % colors.length] }]}>
+                  <Text style={[styles.trendingAction, { color: cardColor }]}>
                     START →
                   </Text>
                 </TouchableOpacity>
               );
-            })}
-          </ScrollView>
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.trendingScroll}
-          >
-            {[
-              { title: 'Python Basics', emoji: '🐍', color: COLORS.green },
-              { title: 'Django Backend', emoji: '⚡', color: COLORS.blue },
-              { title: 'React Native', emoji: '📱', color: COLORS.red },
-              { title: 'Data Science', emoji: '📊', color: COLORS.amber },
+            })
+          ) : (
+            [
+              { title: 'Python Basics', emoji: '🐍', color: colors.green },
+              { title: 'Django Backend', emoji: '⚡', color: colors.blue },
+              { title: 'React Native', emoji: '📱', color: colors.red },
+              { title: 'Data Science', emoji: '📊', color: colors.amber },
             ].map((course, i) => (
               <TouchableOpacity
                 key={i}
-                style={[styles.trendingCard, { borderTopColor: course.color }]}
+                style={[styles.trendingCard, {
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                  borderTopColor: course.color,
+                }]}
                 onPress={() => navigation.navigate('Courses')}
               >
                 <Text style={styles.trendingEmoji}>{course.emoji}</Text>
-                <Text style={styles.trendingTitle}>{course.title}</Text>
+                <Text style={[styles.trendingTitle, { color: colors.text }]}>
+                  {course.title}
+                </Text>
                 <Text style={[styles.trendingAction, { color: course.color }]}>
                   START →
                 </Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
+            ))
+          )}
+        </ScrollView>
       </AnimatedCard>
 
       {/* Continue Learning */}
       <AnimatedCard delay={500}>
-        <Text style={styles.sectionTitle}>// CONTINUE LEARNING</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
+          // CONTINUE LEARNING
+        </Text>
         <TouchableOpacity
-          style={styles.continueCard}
+          style={[styles.continueCard, {
+            borderColor: colors.blue,
+            borderLeftColor: colors.blue,
+            backgroundColor: colors.surfaceBlue,
+          }]}
           onPress={() => navigation.navigate('Courses')}
         >
           <Text style={styles.continueIcon}>▶️</Text>
           <View style={styles.continueText}>
-            <Text style={styles.continueTitleText}>START LEARNING TODAY!</Text>
-            <Text style={styles.continueSub}>Browse our course library →</Text>
+            <Text style={[styles.continueTitleText, { color: colors.white }]}>
+              START LEARNING TODAY!
+            </Text>
+            <Text style={[styles.continueSub, { color: colors.blue }]}>
+              Browse our course library →
+            </Text>
           </View>
         </TouchableOpacity>
       </AnimatedCard>
 
-      {/* Verified Badge */}
+      {/* Unverified Banner */}
       {!user?.is_verified && (
         <AnimatedCard delay={600}>
-          <View style={styles.unverifiedBanner}>
+          <View style={[styles.unverifiedBanner, {
+            borderColor: colors.amber,
+            borderLeftColor: colors.amber,
+          }]}>
             <Text style={styles.unverifiedIcon}>⚠️</Text>
             <View style={styles.unverifiedText}>
-              <Text style={styles.unverifiedTitle}>ACCOUNT NOT VERIFIED</Text>
-              <Text style={styles.unverifiedSub}>
+              <Text style={[styles.unverifiedTitle, { color: colors.amber }]}>
+                ACCOUNT NOT VERIFIED
+              </Text>
+              <Text style={[styles.unverifiedSub, { color: colors.textDim }]}>
                 Check your email for OTP verification
               </Text>
             </View>
@@ -385,160 +444,122 @@ export default function DashboardScreen({ navigation }) {
         </AnimatedCard>
       )}
 
-      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe 🇰🇪</Text>
+      <Text style={[styles.footer, { color: colors.textDim }]}>
+        Developed by: 💞🙏 Engineer Joe 🇰🇪
+      </Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1 },
   loadingContainer: {
-    flex: 1, backgroundColor: COLORS.bg,
-    justifyContent: 'center', alignItems: 'center',
+    flex: 1, justifyContent: 'center', alignItems: 'center',
   },
   loadingText: {
-    color: COLORS.green, fontFamily: 'monospace',
-    marginTop: 16, letterSpacing: 3,
+    fontFamily: 'monospace', marginTop: 16, letterSpacing: 3,
   },
   flagBanner: { flexDirection: 'row', height: 6 },
   flagStripe: { flex: 1 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'flex-start', padding: 24, paddingTop: 32,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    borderBottomWidth: 1,
   },
   headerLeft: { flex: 1 },
   headerRight: {
     flexDirection: 'row', gap: 8, alignItems: 'center',
   },
   tag: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 8,
+    fontSize: 10, letterSpacing: 3,
+    fontFamily: 'monospace', marginBottom: 8,
   },
   welcomeRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
   },
-  welcome: {
-    color: COLORS.textDim, fontSize: 12,
-    fontFamily: 'monospace',
-  },
+  welcome: { fontSize: 12, fontFamily: 'monospace' },
   username: {
-    color: COLORS.green, fontSize: 22,
-    fontWeight: '900', fontFamily: 'monospace',
+    fontSize: 22, fontWeight: '900', fontFamily: 'monospace',
   },
   bellBtn: {
-    position: 'relative',
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 10, backgroundColor: COLORS.surface,
+    position: 'relative', borderWidth: 1, padding: 10,
   },
   bellIcon: { fontSize: 20 },
   bellBadge: {
     position: 'absolute', top: -6, right: -6,
-    backgroundColor: COLORS.red,
     minWidth: 18, height: 18, borderRadius: 9,
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 4,
   },
   bellBadgeText: {
-    color: COLORS.white, fontSize: 9,
+    color: '#fff', fontSize: 9,
     fontFamily: 'monospace', fontWeight: '900',
   },
   logoutBtn: {
-    borderWidth: 1, borderColor: COLORS.red,
-    padding: 10, paddingHorizontal: 14,
+    borderWidth: 1, padding: 10, paddingHorizontal: 14,
   },
   logoutText: {
-    color: COLORS.red, fontSize: 11,
-    letterSpacing: 2, fontFamily: 'monospace',
+    fontSize: 11, letterSpacing: 2, fontFamily: 'monospace',
   },
   searchContainer: {
     flexDirection: 'row', alignItems: 'center',
     marginHorizontal: 20, marginTop: 16, marginBottom: 8,
-    borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.surface, paddingHorizontal: 16,
+    borderWidth: 1, paddingHorizontal: 16,
   },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: {
-    flex: 1, color: COLORS.text,
-    fontFamily: 'monospace', fontSize: 13,
-    paddingVertical: 12,
+    flex: 1, fontFamily: 'monospace',
+    fontSize: 13, paddingVertical: 12,
   },
-  clearSearch: {
-    color: COLORS.textDim, fontSize: 16, padding: 4,
-  },
+  clearSearch: { fontSize: 16, padding: 4 },
   tokenCard: {
     marginHorizontal: 20, marginVertical: 16,
-    borderWidth: 1, borderColor: COLORS.green,
-    backgroundColor: COLORS.surfaceGreen,
+    borderWidth: 1, borderLeftWidth: 4,
     padding: 20, flexDirection: 'row',
     justifyContent: 'space-between', alignItems: 'center',
-    borderLeftWidth: 4, borderLeftColor: COLORS.green,
   },
   tokenLeft: { flex: 1 },
   tokenLabel: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 8,
+    fontSize: 10, letterSpacing: 3,
+    fontFamily: 'monospace', marginBottom: 8,
   },
   tokenBalance: {
-    color: COLORS.green, fontSize: 44,
-    fontWeight: '900', fontFamily: 'monospace',
+    fontSize: 44, fontWeight: '900', fontFamily: 'monospace',
   },
   tokenUnit: { fontSize: 24 },
   tokenHint: {
-    color: COLORS.textDim, fontSize: 10,
-    fontFamily: 'monospace', marginTop: 4,
+    fontSize: 10, fontFamily: 'monospace', marginTop: 4,
   },
   topupBtn: {
-    backgroundColor: COLORS.green,
     padding: 16, alignItems: 'center', minWidth: 80,
   },
   topupText: {
-    color: COLORS.white, fontWeight: '900',
-    fontFamily: 'monospace', fontSize: 11, letterSpacing: 1,
+    fontWeight: '900', fontFamily: 'monospace',
+    fontSize: 11, letterSpacing: 1,
   },
   topupIcon: { fontSize: 20, marginTop: 4 },
   sectionTitle: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace',
-    paddingHorizontal: 20, marginBottom: 12,
+    fontSize: 10, letterSpacing: 3,
+    fontFamily: 'monospace', paddingHorizontal: 20, marginBottom: 12,
   },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
     paddingHorizontal: 16, gap: 8, marginBottom: 24,
   },
-  gridItem: {
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 20, alignItems: 'center',
-    backgroundColor: COLORS.surface, borderTopWidth: 3,
-  },
-  gridIcon: { fontSize: 28, marginBottom: 10 },
-  gridLabel: {
-    color: COLORS.text, fontSize: 11,
-    letterSpacing: 2, fontFamily: 'monospace',
-  },
   trendingHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingRight: 20, marginBottom: 4,
   },
-  seeAll: {
-    color: COLORS.green, fontFamily: 'monospace',
-    fontSize: 11, letterSpacing: 1,
-  },
+  seeAll: { fontFamily: 'monospace', fontSize: 11, letterSpacing: 1 },
   trendingScroll: { paddingLeft: 20, marginBottom: 24 },
   trendingCard: {
-    borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-    padding: 16, marginRight: 12,
+    borderWidth: 1, padding: 16, marginRight: 12,
     width: 150, borderTopWidth: 3,
   },
   trendingEmoji: { fontSize: 28, marginBottom: 8 },
   trendingTitle: {
-    color: COLORS.text, fontFamily: 'monospace',
-    fontSize: 12, fontWeight: '700', marginBottom: 4,
-  },
-  trendingDesc: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 10, marginBottom: 8,
+    fontFamily: 'monospace', fontSize: 12,
+    fontWeight: '700', marginBottom: 8,
   },
   trendingAction: {
     fontFamily: 'monospace', fontSize: 11,
@@ -546,25 +567,19 @@ const styles = StyleSheet.create({
   },
   continueCard: {
     marginHorizontal: 20, marginBottom: 24,
-    borderWidth: 1, borderColor: COLORS.blue,
-    backgroundColor: COLORS.surfaceBlue,
-    padding: 20, flexDirection: 'row',
-    alignItems: 'center', borderLeftWidth: 4,
-    borderLeftColor: COLORS.blue,
+    borderWidth: 1, borderLeftWidth: 4,
+    padding: 20, flexDirection: 'row', alignItems: 'center',
   },
   continueIcon: { fontSize: 32, marginRight: 16 },
   continueText: { flex: 1 },
   continueTitleText: {
-    color: COLORS.white, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 13, marginBottom: 4,
+    fontFamily: 'monospace', fontWeight: '900',
+    fontSize: 13, marginBottom: 4,
   },
-  continueSub: {
-    color: COLORS.blue, fontFamily: 'monospace', fontSize: 12,
-  },
+  continueSub: { fontFamily: 'monospace', fontSize: 12 },
   unverifiedBanner: {
     marginHorizontal: 20, marginBottom: 16,
-    borderWidth: 1, borderColor: COLORS.amber,
-    borderLeftWidth: 4, borderLeftColor: COLORS.amber,
+    borderWidth: 1, borderLeftWidth: 4,
     backgroundColor: 'rgba(255,215,0,0.05)',
     padding: 16, flexDirection: 'row',
     alignItems: 'center', gap: 12,
@@ -572,15 +587,14 @@ const styles = StyleSheet.create({
   unverifiedIcon: { fontSize: 24 },
   unverifiedText: { flex: 1 },
   unverifiedTitle: {
-    color: COLORS.amber, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 12, letterSpacing: 1,
+    fontFamily: 'monospace', fontWeight: '900',
+    fontSize: 12, letterSpacing: 1,
   },
   unverifiedSub: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 11, marginTop: 4,
+    fontFamily: 'monospace', fontSize: 11, marginTop: 4,
   },
   footer: {
-    textAlign: 'center', color: COLORS.textDim,
-    fontSize: 11, margin: 32, fontFamily: 'monospace',
+    textAlign: 'center', fontSize: 11,
+    margin: 32, fontFamily: 'monospace',
   },
 });

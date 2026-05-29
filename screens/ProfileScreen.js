@@ -2,20 +2,26 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, ActivityIndicator,
-  Alert, Platform, Animated, Image
+  Alert, Platform, Animated
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import COLORS from '../constants/colors';
+import { useTheme } from '../context/ThemeContext';
 import Avatar from '../components/Avatar';
 
-function AnimatedButton({ onPress, label, loading, style, textStyle }) {
+function AnimatedButton({ onPress, label, loading, style, textStyle, colors }) {
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <TouchableOpacity
-        style={[styles.btn, style]}
+        style={[{
+          backgroundColor: colors.green,
+          padding: 16, alignItems: 'center',
+          marginTop: 8, borderRadius: 4,
+          borderBottomWidth: 3,
+          borderBottomColor: colors.greenLight,
+        }, style]}
         onPress={onPress}
         onPressIn={() => Animated.spring(scale, {
           toValue: 0.96, useNativeDriver: true, speed: 50
@@ -27,8 +33,11 @@ function AnimatedButton({ onPress, label, loading, style, textStyle }) {
         activeOpacity={1}
       >
         {loading
-          ? <ActivityIndicator color={COLORS.white} />
-          : <Text style={[styles.btnText, textStyle]}>{label}</Text>
+          ? <ActivityIndicator color="#fff" />
+          : <Text style={[{
+            color: colors.white, fontWeight: '900',
+            letterSpacing: 2, fontFamily: 'monospace', fontSize: 14,
+          }, textStyle]}>{label}</Text>
         }
       </TouchableOpacity>
     </Animated.View>
@@ -36,6 +45,7 @@ function AnimatedButton({ onPress, label, loading, style, textStyle }) {
 }
 
 export default function ProfileScreen({ navigation }) {
+  const { colors } = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -83,7 +93,6 @@ export default function ProfileScreen({ navigation }) {
       setPhone(parsed.phone || '');
       setAvatarUrl(parsed.avatar_url || null);
 
-      // Fetch fresh avatar from server
       try {
         const res = await fetch(
           'https://scilearnbackend.onrender.com/api/users/avatar/',
@@ -119,9 +128,7 @@ export default function ProfileScreen({ navigation }) {
               aspect: [1, 1],
               quality: 0.8,
             });
-            if (!result.canceled) {
-              await uploadAvatar(result.assets[0].uri);
-            }
+            if (!result.canceled) await uploadAvatar(result.assets[0].uri);
           }
         },
         {
@@ -138,15 +145,21 @@ export default function ProfileScreen({ navigation }) {
               aspect: [1, 1],
               quality: 0.8,
             });
-            if (!result.canceled) {
-              await uploadAvatar(result.assets[0].uri);
-            }
+            if (!result.canceled) await uploadAvatar(result.assets[0].uri);
           }
         },
         avatarUrl && {
           text: '🗑️ Remove Avatar',
           style: 'destructive',
-          onPress: removeAvatar,
+          onPress: async () => {
+            setAvatarUrl(null);
+            const userData = await getUserData();
+            if (userData) {
+              const u = JSON.parse(userData);
+              u.avatar_url = null;
+              await saveUserData(u);
+            }
+          },
         },
         { text: 'CANCEL', style: 'cancel' },
       ].filter(Boolean)
@@ -156,7 +169,6 @@ export default function ProfileScreen({ navigation }) {
   const uploadAvatar = async (uri) => {
     setUploadingAvatar(true);
     try {
-      // Compress and resize image
       const manipulated = await ImageManipulator.manipulateAsync(
         uri,
         [{ resize: { width: 400, height: 400 } }],
@@ -164,48 +176,37 @@ export default function ProfileScreen({ navigation }) {
       );
 
       const userData = await getUserData();
-      const user = JSON.parse(userData);
+      const u = JSON.parse(userData);
 
       const formData = new FormData();
       formData.append('avatar', {
         uri: manipulated.uri,
         type: 'image/jpeg',
-        name: `avatar_${user.username}.jpg`,
+        name: `avatar_${u.username}.jpg`,
       });
 
       const res = await fetch(
         'https://scilearnbackend.onrender.com/api/users/avatar/upload/',
         {
           method: 'POST',
-          headers: { 'X-Username': user.username },
+          headers: { 'X-Username': u.username },
           body: formData,
         }
       );
 
       const data = await res.json();
-
       if (res.ok) {
         setAvatarUrl(data.avatar_url);
-        user.avatar_url = data.avatar_url;
-        await saveUserData(user);
+        u.avatar_url = data.avatar_url;
+        await saveUserData(u);
         Alert.alert('✅ Success', 'Avatar updated!');
       } else {
         Alert.alert('Error', data.error || 'Upload failed');
       }
     } catch (e) {
-      Alert.alert('Error', 'Could not upload avatar: ' + e.message);
+      Alert.alert('Error', 'Could not upload: ' + e.message);
     }
     setUploadingAvatar(false);
-  };
-
-  const removeAvatar = async () => {
-    setAvatarUrl(null);
-    const userData = await getUserData();
-    if (userData) {
-      const user = JSON.parse(userData);
-      user.avatar_url = null;
-      await saveUserData(user);
-    }
   };
 
   const updateProfile = async () => {
@@ -319,43 +320,63 @@ export default function ProfileScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color={COLORS.green} size="large" />
-        <Text style={styles.loadingText}>LOADING PROFILE...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator color={colors.green} size="large" />
+        <Text style={[styles.loadingText, { color: colors.green }]}>
+          LOADING PROFILE...
+        </Text>
       </View>
     );
   }
 
   const tabs = [
-    { key: 'info', label: '👤 INFO', color: COLORS.green },
-    { key: 'password', label: '🔒 PASSWORD', color: COLORS.blue },
-    { key: 'danger', label: '⚠️ DANGER', color: COLORS.red },
+    { key: 'info', label: '👤 INFO', color: colors.green },
+    { key: 'password', label: '🔒 PASSWORD', color: colors.blue },
+    { key: 'danger', label: '⚠️ DANGER', color: colors.red },
   ];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.bg }]}
+      showsVerticalScrollIndicator={false}
+    >
 
       {/* Flag Banner */}
       <View style={styles.flagBanner}>
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
+        <View style={[styles.flagStripe, { backgroundColor: colors.black }]} />
+        <View style={[styles.flagStripe, { backgroundColor: colors.red }]} />
+        <View style={[styles.flagStripe, { backgroundColor: colors.green }]} />
       </View>
 
       {/* Header */}
-      <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>← BACK</Text>
+      <Animated.View style={[{
+        padding: 24, paddingTop: 32,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+        backgroundColor: colors.surfaceGreen,
+        opacity: headerOpacity,
+      }]}>
+        <TouchableOpacity
+          style={[styles.backBtn, { borderColor: colors.border }]}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={[styles.backText, { color: colors.green }]}>← BACK</Text>
         </TouchableOpacity>
-        <Text style={styles.tag}>// MY ACCOUNT</Text>
+
+        <Text style={[styles.tag, { color: colors.textDim }]}>
+          // MY ACCOUNT
+        </Text>
 
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <TouchableOpacity onPress={pickAvatar} disabled={uploadingAvatar}>
             <View style={styles.avatarWrapper}>
               {uploadingAvatar ? (
-                <View style={styles.avatarLoading}>
-                  <ActivityIndicator color={COLORS.white} />
+                <View style={[styles.avatarLoading, {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.green,
+                }]}>
+                  <ActivityIndicator color={colors.white} />
                 </View>
               ) : (
                 <Avatar
@@ -365,19 +386,27 @@ export default function ProfileScreen({ navigation }) {
                   fontSize={32}
                 />
               )}
-              <View style={styles.avatarEditBadge}>
+              <View style={[styles.avatarEditBadge, {
+                backgroundColor: colors.blue,
+                borderColor: colors.bg,
+              }]}>
                 <Text style={styles.avatarEditIcon}>📷</Text>
               </View>
             </View>
           </TouchableOpacity>
 
           <View style={styles.avatarInfo}>
-            <Text style={styles.avatarName}>
+            <Text style={[styles.avatarName, { color: colors.white }]}>
               {user?.username?.toUpperCase()}
             </Text>
-            <Text style={styles.avatarEmail}>{user?.email}</Text>
-            <TouchableOpacity onPress={pickAvatar} style={styles.changeAvatarBtn}>
-              <Text style={styles.changeAvatarText}>
+            <Text style={[styles.avatarEmail, { color: colors.textDim }]}>
+              {user?.email}
+            </Text>
+            <TouchableOpacity
+              onPress={pickAvatar}
+              style={[styles.changeAvatarBtn, { borderColor: colors.blue }]}
+            >
+              <Text style={[styles.changeAvatarText, { color: colors.blue }]}>
                 {uploadingAvatar ? 'UPLOADING...' : '📸 CHANGE PHOTO'}
               </Text>
             </TouchableOpacity>
@@ -386,29 +415,45 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Stats */}
         <View style={styles.statsRow}>
-          <View style={[styles.statItem, { borderColor: COLORS.green }]}>
-            <Text style={[styles.statNum, { color: COLORS.green }]}>
+          <View style={[styles.statItem, {
+            borderColor: colors.green,
+            backgroundColor: colors.bg,
+          }]}>
+            <Text style={[styles.statNum, { color: colors.green }]}>
               🪙 {user?.tokens || 0}
             </Text>
-            <Text style={styles.statLabel}>TOKENS</Text>
+            <Text style={[styles.statLabel, { color: colors.textDim }]}>
+              TOKENS
+            </Text>
           </View>
-          <View style={[styles.statItem, { borderColor: COLORS.amber }]}>
-            <Text style={[styles.statNum, { color: COLORS.amber }]}>
+          <View style={[styles.statItem, {
+            borderColor: colors.amber,
+            backgroundColor: colors.bg,
+          }]}>
+            <Text style={[styles.statNum, { color: colors.amber }]}>
               {user?.is_verified ? '✅' : '❌'}
             </Text>
-            <Text style={styles.statLabel}>VERIFIED</Text>
-          </View>
-          <View style={[styles.statItem, { borderColor: COLORS.blue }]}>
-            <Text style={[styles.statNum, { color: COLORS.blue }]}>
-              🏆 0
+            <Text style={[styles.statLabel, { color: colors.textDim }]}>
+              VERIFIED
             </Text>
-            <Text style={styles.statLabel}>COURSES</Text>
+          </View>
+          <View style={[styles.statItem, {
+            borderColor: colors.blue,
+            backgroundColor: colors.bg,
+          }]}>
+            <Text style={[styles.statNum, { color: colors.blue }]}>🏆 0</Text>
+            <Text style={[styles.statLabel, { color: colors.textDim }]}>
+              COURSES
+            </Text>
           </View>
         </View>
       </Animated.View>
 
       {/* Tabs */}
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, {
+        borderBottomColor: colors.border,
+        backgroundColor: colors.surface,
+      }]}>
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
@@ -423,6 +468,7 @@ export default function ProfileScreen({ navigation }) {
           >
             <Text style={[
               styles.tabText,
+              { color: colors.textDim },
               activeTab === tab.key && { color: tab.color }
             ]}>
               {tab.label}
@@ -434,46 +480,78 @@ export default function ProfileScreen({ navigation }) {
       {/* INFO TAB */}
       {activeTab === 'info' && (
         <View style={styles.form}>
-          <Text style={styles.formSectionTitle}>// UPDATE YOUR INFO</Text>
+          <Text style={[styles.formSectionTitle, { color: colors.textDim }]}>
+            // UPDATE YOUR INFO
+          </Text>
 
-          <Text style={styles.label}>USERNAME</Text>
+          <Text style={[styles.label, { color: colors.textDim }]}>USERNAME</Text>
           <TextInput
-            style={[styles.input, focusedInput === 'username' && styles.inputFocused]}
+            style={[styles.input, {
+              borderColor: focusedInput === 'username' ? colors.green : colors.border,
+              color: colors.text,
+              backgroundColor: colors.bg,
+            }]}
             value={username}
             onChangeText={setUsername}
-            placeholderTextColor={COLORS.textDim}
+            placeholderTextColor={colors.textDim}
             autoCapitalize="none"
             onFocus={() => setFocusedInput('username')}
             onBlur={() => setFocusedInput(null)}
           />
 
-          <Text style={styles.label}>EMAIL ADDRESS</Text>
+          <Text style={[styles.label, { color: colors.textDim }]}>
+            EMAIL ADDRESS
+          </Text>
           <TextInput
-            style={[styles.input, focusedInput === 'email' && styles.inputFocused]}
+            style={[styles.input, {
+              borderColor: focusedInput === 'email' ? colors.green : colors.border,
+              color: colors.text,
+              backgroundColor: colors.bg,
+            }]}
             value={email}
             onChangeText={setEmail}
-            placeholderTextColor={COLORS.textDim}
+            placeholderTextColor={colors.textDim}
             keyboardType="email-address"
             autoCapitalize="none"
             onFocus={() => setFocusedInput('email')}
             onBlur={() => setFocusedInput(null)}
           />
 
-          <Text style={styles.label}>PHONE NUMBER</Text>
+          <Text style={[styles.label, { color: colors.textDim }]}>
+            PHONE NUMBER
+          </Text>
           <TextInput
-            style={[styles.input, focusedInput === 'phone' && styles.inputFocused]}
+            style={[styles.input, {
+              borderColor: focusedInput === 'phone' ? colors.green : colors.border,
+              color: colors.text,
+              backgroundColor: colors.bg,
+            }]}
             value={phone}
             onChangeText={setPhone}
-            placeholderTextColor={COLORS.textDim}
+            placeholderTextColor={colors.textDim}
             keyboardType="phone-pad"
             onFocus={() => setFocusedInput('phone')}
             onBlur={() => setFocusedInput(null)}
           />
 
+          {/* Theme Button */}
+          <TouchableOpacity
+            style={[styles.themeBtn, {
+              borderColor: colors.blue,
+              backgroundColor: colors.surfaceBlue,
+            }]}
+            onPress={() => navigation.navigate('Theme')}
+          >
+            <Text style={[styles.themeBtnText, { color: colors.blue }]}>
+              🎨 CHANGE APP THEME
+            </Text>
+          </TouchableOpacity>
+
           <AnimatedButton
             label="💾 SAVE CHANGES"
             onPress={updateProfile}
             loading={saving}
+            colors={colors}
           />
         </View>
       )}
@@ -481,40 +559,60 @@ export default function ProfileScreen({ navigation }) {
       {/* PASSWORD TAB */}
       {activeTab === 'password' && (
         <View style={styles.form}>
-          <Text style={styles.formSectionTitle}>// CHANGE PASSWORD</Text>
+          <Text style={[styles.formSectionTitle, { color: colors.textDim }]}>
+            // CHANGE PASSWORD
+          </Text>
 
-          <Text style={styles.label}>CURRENT PASSWORD</Text>
+          <Text style={[styles.label, { color: colors.textDim }]}>
+            CURRENT PASSWORD
+          </Text>
           <TextInput
-            style={[styles.input, focusedInput === 'current' && styles.inputFocusedBlue]}
+            style={[styles.input, {
+              borderColor: focusedInput === 'current' ? colors.blue : colors.border,
+              color: colors.text,
+              backgroundColor: colors.bg,
+            }]}
             value={currentPassword}
             onChangeText={setCurrentPassword}
             secureTextEntry
             placeholder="••••••••"
-            placeholderTextColor={COLORS.textDim}
+            placeholderTextColor={colors.textDim}
             onFocus={() => setFocusedInput('current')}
             onBlur={() => setFocusedInput(null)}
           />
 
-          <Text style={styles.label}>NEW PASSWORD</Text>
+          <Text style={[styles.label, { color: colors.textDim }]}>
+            NEW PASSWORD
+          </Text>
           <TextInput
-            style={[styles.input, focusedInput === 'new' && styles.inputFocusedBlue]}
+            style={[styles.input, {
+              borderColor: focusedInput === 'new' ? colors.blue : colors.border,
+              color: colors.text,
+              backgroundColor: colors.bg,
+            }]}
             value={newPassword}
             onChangeText={setNewPassword}
             secureTextEntry
             placeholder="min. 8 characters"
-            placeholderTextColor={COLORS.textDim}
+            placeholderTextColor={colors.textDim}
             onFocus={() => setFocusedInput('new')}
             onBlur={() => setFocusedInput(null)}
           />
 
-          <Text style={styles.label}>CONFIRM NEW PASSWORD</Text>
+          <Text style={[styles.label, { color: colors.textDim }]}>
+            CONFIRM NEW PASSWORD
+          </Text>
           <TextInput
-            style={[styles.input, focusedInput === 'confirm' && styles.inputFocusedBlue]}
+            style={[styles.input, {
+              borderColor: focusedInput === 'confirm' ? colors.blue : colors.border,
+              color: colors.text,
+              backgroundColor: colors.bg,
+            }]}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
             placeholder="••••••••"
-            placeholderTextColor={COLORS.textDim}
+            placeholderTextColor={colors.textDim}
             onFocus={() => setFocusedInput('confirm')}
             onBlur={() => setFocusedInput(null)}
           />
@@ -523,7 +621,8 @@ export default function ProfileScreen({ navigation }) {
             label="🔒 CHANGE PASSWORD"
             onPress={changePassword}
             loading={saving}
-            style={{ backgroundColor: COLORS.blue }}
+            colors={colors}
+            style={{ backgroundColor: colors.blue }}
           />
         </View>
       )}
@@ -531,11 +630,16 @@ export default function ProfileScreen({ navigation }) {
       {/* DANGER TAB */}
       {activeTab === 'danger' && (
         <View style={styles.form}>
-          <Text style={styles.formSectionTitle}>// DANGER ZONE</Text>
+          <Text style={[styles.formSectionTitle, { color: colors.textDim }]}>
+            // DANGER ZONE
+          </Text>
 
-          <View style={styles.dangerWarning}>
+          <View style={[styles.dangerWarning, {
+            borderColor: colors.red,
+            backgroundColor: 'rgba(187,0,0,0.05)',
+          }]}>
             <Text style={styles.dangerIcon}>⚠️</Text>
-            <Text style={styles.dangerText}>
+            <Text style={[styles.dangerText, { color: colors.textDim }]}>
               Deleting your account will permanently remove all your data,
               tokens, progress and certificates. This cannot be undone!
             </Text>
@@ -544,48 +648,41 @@ export default function ProfileScreen({ navigation }) {
           <AnimatedButton
             label="🗑️ DELETE MY ACCOUNT"
             onPress={deleteAccount}
-            style={styles.deleteBtn}
-            textStyle={styles.deleteBtnText}
+            colors={colors}
+            style={{
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              borderColor: colors.red,
+              borderBottomColor: colors.red,
+            }}
+            textStyle={{ color: colors.red }}
           />
         </View>
       )}
 
-      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe 🇰🇪</Text>
+      <Text style={[styles.footer, { color: colors.textDim }]}>
+        Developed by: 💞🙏 Engineer Joe 🇰🇪
+      </Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1 },
   loadingContainer: {
-    flex: 1, backgroundColor: COLORS.bg,
-    justifyContent: 'center', alignItems: 'center',
+    flex: 1, justifyContent: 'center', alignItems: 'center',
   },
   loadingText: {
-    color: COLORS.green, fontFamily: 'monospace',
-    marginTop: 16, letterSpacing: 3, fontSize: 11,
+    fontFamily: 'monospace', marginTop: 16, letterSpacing: 3, fontSize: 11,
   },
   flagBanner: { flexDirection: 'row', height: 6 },
   flagStripe: { flex: 1 },
-  header: {
-    padding: 24, paddingTop: 32,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surfaceGreen,
-  },
   backBtn: {
-    alignSelf: 'flex-start',
-    borderWidth: 1, borderColor: COLORS.border,
-    paddingVertical: 6, paddingHorizontal: 14,
-    marginBottom: 16,
+    alignSelf: 'flex-start', borderWidth: 1,
+    paddingVertical: 6, paddingHorizontal: 14, marginBottom: 16,
   },
-  backText: {
-    color: COLORS.green, fontFamily: 'monospace',
-    fontSize: 12, letterSpacing: 2,
-  },
-  tag: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 16,
-  },
+  backText: { fontFamily: 'monospace', fontSize: 12, letterSpacing: 2 },
+  tag: { fontSize: 10, letterSpacing: 3, fontFamily: 'monospace', marginBottom: 16 },
   avatarSection: {
     flexDirection: 'row', alignItems: 'center',
     gap: 16, marginBottom: 20,
@@ -593,113 +690,72 @@ const styles = StyleSheet.create({
   avatarWrapper: { position: 'relative' },
   avatarLoading: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: COLORS.surface,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: COLORS.green,
+    borderWidth: 2,
   },
   avatarEditBadge: {
     position: 'absolute', bottom: -4, right: -4,
-    backgroundColor: COLORS.blue,
     width: 26, height: 26, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: COLORS.bg,
+    borderWidth: 2,
   },
   avatarEditIcon: { fontSize: 12 },
   avatarInfo: { flex: 1 },
   avatarName: {
-    color: COLORS.white, fontSize: 18,
-    fontWeight: '900', fontFamily: 'monospace',
+    fontSize: 18, fontWeight: '900', fontFamily: 'monospace',
   },
-  avatarEmail: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 11, marginTop: 4,
-  },
+  avatarEmail: { fontFamily: 'monospace', fontSize: 11, marginTop: 4 },
   changeAvatarBtn: {
     marginTop: 8, alignSelf: 'flex-start',
-    borderWidth: 1, borderColor: COLORS.blue,
-    paddingVertical: 4, paddingHorizontal: 10,
+    borderWidth: 1, paddingVertical: 4, paddingHorizontal: 10,
   },
-  changeAvatarText: {
-    color: COLORS.blue, fontFamily: 'monospace',
-    fontSize: 10, letterSpacing: 1,
-  },
-  statsRow: {
-    flexDirection: 'row', gap: 8,
-  },
+  changeAvatarText: { fontFamily: 'monospace', fontSize: 10, letterSpacing: 1 },
+  statsRow: { flexDirection: 'row', gap: 8 },
   statItem: {
     flex: 1, borderWidth: 1,
     padding: 10, alignItems: 'center',
-    backgroundColor: COLORS.bg,
   },
-  statNum: {
-    fontFamily: 'monospace', fontWeight: '900', fontSize: 14,
-  },
-  statLabel: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 9, letterSpacing: 1, marginTop: 4,
-  },
+  statNum: { fontFamily: 'monospace', fontWeight: '900', fontSize: 14 },
+  statLabel: { fontFamily: 'monospace', fontSize: 9, letterSpacing: 1, marginTop: 4 },
   tabs: {
     flexDirection: 'row',
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
   },
   tab: {
     flex: 1, padding: 16, alignItems: 'center',
     borderBottomWidth: 3, borderBottomColor: 'transparent',
   },
-  tabText: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 11, letterSpacing: 1,
-  },
+  tabText: { fontFamily: 'monospace', fontSize: 11, letterSpacing: 1 },
   form: { padding: 24 },
   formSectionTitle: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 24,
+    fontSize: 10, letterSpacing: 3,
+    fontFamily: 'monospace', marginBottom: 24,
   },
   label: {
-    color: COLORS.textDim, fontSize: 11,
-    letterSpacing: 3, marginBottom: 8, fontFamily: 'monospace',
+    fontSize: 11, letterSpacing: 3,
+    marginBottom: 8, fontFamily: 'monospace',
   },
   input: {
-    borderWidth: 1, borderColor: COLORS.border,
-    color: COLORS.text, padding: 14,
+    borderWidth: 1, padding: 14,
     marginBottom: 20, fontFamily: 'monospace',
-    fontSize: 14, backgroundColor: COLORS.bg, borderRadius: 4,
+    fontSize: 14, borderRadius: 4,
   },
-  inputFocused: { borderColor: COLORS.green, borderWidth: 1.5 },
-  inputFocusedBlue: { borderColor: COLORS.blue, borderWidth: 1.5 },
-  btn: {
-    backgroundColor: COLORS.green,
-    padding: 16, alignItems: 'center',
-    marginTop: 8, borderRadius: 4,
-    borderBottomWidth: 3, borderBottomColor: COLORS.greenLight,
+  themeBtn: {
+    borderWidth: 1, padding: 14,
+    alignItems: 'center', marginBottom: 12,
   },
-  btnText: {
-    color: COLORS.white, fontWeight: '900',
-    letterSpacing: 2, fontFamily: 'monospace', fontSize: 14,
+  themeBtnText: {
+    fontFamily: 'monospace', fontWeight: '700',
+    letterSpacing: 2, fontSize: 13,
   },
   dangerWarning: {
     flexDirection: 'row', gap: 12,
-    borderWidth: 1, borderColor: COLORS.red,
-    padding: 16, marginBottom: 24,
-    backgroundColor: 'rgba(187,0,0,0.05)',
+    borderWidth: 1, padding: 16, marginBottom: 24,
   },
   dangerIcon: { fontSize: 20 },
-  dangerText: {
-    flex: 1, color: COLORS.textDim,
-    fontFamily: 'monospace', fontSize: 12, lineHeight: 20,
-  },
-  deleteBtn: {
-    backgroundColor: 'transparent',
-    borderWidth: 2, borderColor: COLORS.red,
-    padding: 16, alignItems: 'center', borderRadius: 4,
-  },
-  deleteBtnText: {
-    color: COLORS.red, fontWeight: '900',
-    letterSpacing: 2, fontFamily: 'monospace', fontSize: 14,
-  },
+  dangerText: { flex: 1, fontFamily: 'monospace', fontSize: 12, lineHeight: 20 },
   footer: {
-    textAlign: 'center', color: COLORS.textDim,
-    fontSize: 11, margin: 32, fontFamily: 'monospace',
+    textAlign: 'center', fontSize: 11,
+    margin: 32, fontFamily: 'monospace',
   },
 });
