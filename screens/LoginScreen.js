@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, ActivityIndicator,
@@ -6,17 +6,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';
-import { endpoints } from '../constants/api';
+
+const API_URL = 'https://scilearnbackend.onrender.com/api';
 
 function AnimatedButton({ onPress, label, loading, style, textStyle }) {
   const scale = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = () => {
-    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
-  };
-  const onPressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
-  };
+  const onPressIn = () => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
+  const onPressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
 
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
@@ -42,6 +38,7 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState(null);
+  const [serverStatus, setServerStatus] = useState('checking');
 
   const saveUserData = async (data) => {
     const json = JSON.stringify(data);
@@ -52,50 +49,94 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  useEffect(() => {
+    wakeUpServer();
+  }, []);
+
+  const wakeUpServer = async () => {
+    setServerStatus('checking');
+    try {
+      await fetch(`${API_URL}/users/login/`, { method: 'GET' });
+    } catch {}
+    setServerStatus('awake');
+  };
+
   const handleLogin = async () => {
-    if (!username || !password) {
+    if (!username.trim() || !password.trim()) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
     setLoading(true);
     try {
-      const res = await fetch(endpoints.login, {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
+      const res = await fetch(`${API_URL}/users/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password,
+        }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
       const data = await res.json();
+
       if (res.ok) {
         await saveUserData(data);
         navigation.replace('Dashboard');
       } else {
         Alert.alert('Login Failed', data.error || 'Invalid credentials');
       }
-    } catch {
-      Alert.alert('Error', 'Cannot connect to server');
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        Alert.alert(
+          '⏱️ Server Timeout',
+          'The server is waking up. Please wait 30 seconds and try again.',
+          [{ text: 'RETRY', onPress: handleLogin }]
+        );
+      } else {
+        Alert.alert('Connection Error', `Cannot connect to server.\n\n${e.message}`);
+      }
     }
     setLoading(false);
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-
-      {/* Header Banner */}
-      <View style={styles.banner}>
-        <View style={styles.flagStripe} />
-        <View style={styles.flagStripeRed} />
-        <View style={styles.flagStripe} />
+    <ScrollView
+      contentContainerStyle={[styles.container, { backgroundColor: COLORS.bg }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* Flag Banner */}
+      <View style={styles.flagBanner}>
+        <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
+        <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
+        <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
       </View>
+
+      {/* Server Waking Up Banner */}
+      {serverStatus === 'checking' && (
+        <View style={styles.serverBanner}>
+          <ActivityIndicator color={COLORS.amber} size="small" />
+          <Text style={styles.serverText}>
+            Connecting to server...
+          </Text>
+        </View>
+      )}
 
       {/* Logo */}
       <View style={styles.logoSection}>
         <Text style={styles.logo}>
           SCI<Text style={styles.logoAccent}>LEARN</Text>
         </Text>
-        <Text style={styles.logoSub}>KENYA'S #1 TECH LEARNING PLATFORM</Text>
+        <Text style={styles.logoSub}>
+          KENYA'S #1 TECH LEARNING PLATFORM
+        </Text>
       </View>
 
-      {/* Form */}
+      {/* Form Card */}
       <View style={styles.formCard}>
         <View style={styles.formHeader}>
           <Text style={styles.formTitle}>WELCOME BACK</Text>
@@ -112,6 +153,7 @@ export default function LoginScreen({ navigation }) {
           onFocus={() => setFocusedInput('username')}
           onBlur={() => setFocusedInput(null)}
           autoCapitalize="none"
+          autoCorrect={false}
         />
 
         <Text style={styles.label}>PASSWORD</Text>
@@ -146,7 +188,7 @@ export default function LoginScreen({ navigation }) {
         />
       </View>
 
-      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe</Text>
+      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe 🇰🇪</Text>
     </ScrollView>
   );
 }
@@ -156,21 +198,27 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: COLORS.bg,
   },
-  banner: {
+  flagBanner: { flexDirection: 'row', height: 8 },
+  flagStripe: { flex: 1 },
+  serverBanner: {
     flexDirection: 'row',
-    height: 8,
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,215,0,0.1)',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.amber,
+    padding: 10,
+    paddingHorizontal: 16,
   },
-  flagStripe: {
-    flex: 1,
-    backgroundColor: COLORS.green,
-  },
-  flagStripeRed: {
-    flex: 1,
-    backgroundColor: COLORS.red,
+  serverText: {
+    color: COLORS.amber,
+    fontFamily: 'monospace',
+    fontSize: 11,
+    letterSpacing: 1,
   },
   logoSection: {
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: 40,
     paddingHorizontal: 28,
   },
   logo: {
@@ -183,9 +231,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 20,
   },
-  logoAccent: {
-    color: COLORS.blue,
-  },
+  logoAccent: { color: COLORS.blue },
   logoSub: {
     color: COLORS.textDim,
     fontSize: 10,
@@ -202,9 +248,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 3,
     borderTopColor: COLORS.green,
   },
-  formHeader: {
-    marginBottom: 28,
-  },
+  formHeader: { marginBottom: 28 },
   formTitle: {
     color: COLORS.white,
     fontSize: 20,
@@ -246,6 +290,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
     borderRadius: 4,
+    borderBottomWidth: 3,
+    borderBottomColor: COLORS.greenLight,
   },
   btnText: {
     color: COLORS.white,
@@ -274,6 +320,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: COLORS.blue,
+    borderBottomWidth: 1,
     padding: 16,
     alignItems: 'center',
     borderRadius: 4,

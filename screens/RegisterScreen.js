@@ -6,17 +6,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/colors';
-import { endpoints } from '../constants/api';
+
+const API_URL = 'https://scilearnbackend.onrender.com/api';
 
 function AnimatedButton({ onPress, label, loading, style, textStyle }) {
   const scale = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = () => {
-    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
-  };
-  const onPressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
-  };
+  const onPressIn = () => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
+  const onPressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
 
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
@@ -43,15 +39,20 @@ export default function RegisterScreen({ navigation }) {
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    referralCode: '',
   });
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState(null);
+  const [showReferral, setShowReferral] = useState(false);
 
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
-  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const validatePhone = (phone) => /^(\+254|0)[17]\d{8}$/.test(phone);
+  const validateEmail = (email) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const validatePhone = (phone) =>
+    /^(\+254|0)[17]\d{8}$/.test(phone);
 
   const saveUserData = async (data) => {
     const json = JSON.stringify(data);
@@ -63,13 +64,13 @@ export default function RegisterScreen({ navigation }) {
   };
 
   const handleRegister = async () => {
-    const { username, email, phone, password, confirmPassword } = form;
+    const { username, email, phone, password, confirmPassword, referralCode } = form;
 
     if (!username || !email || !phone || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill all fields');
+      Alert.alert('Error', 'Please fill all required fields');
       return;
     }
-    if (username.length < 3) {
+    if (username.trim().length < 3) {
       Alert.alert('Error', 'Username must be at least 3 characters');
       return;
     }
@@ -78,7 +79,7 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
     if (!validatePhone(phone)) {
-      Alert.alert('Error', 'Please enter a valid phone number\nExample: 0712345678');
+      Alert.alert('Error', 'Please enter a valid Kenyan phone number\nExample: 0712345678');
       return;
     }
     if (password.length < 8) {
@@ -92,42 +93,64 @@ export default function RegisterScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const res = await fetch(endpoints.register, {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
+      const res = await fetch(`${API_URL}/users/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username,
-          email,
+          username: username.trim(),
+          email: email.trim(),
           password,
-          phone_number: phone,
+          phone_number: phone.trim(),
+          referral_code: referralCode.trim(),
         }),
+        signal: controller.signal,
       });
-      const data = await res.json();
-      
-      if (res.ok) {
-       navigation.navigate('OTP', {
-         username: form.username,
-         email: form.email,
-         phone: form.phone,
-        });
-      } else {
-       Alert.alert('Error', data.error || 'Registration failed');
-      }
 
-    } catch {
-      Alert.alert('Error', 'Cannot connect to server');
+      clearTimeout(timeout);
+      const data = await res.json();
+
+      if (res.ok) {
+        if (data.requires_verification) {
+          // Navigate to OTP screen
+          navigation.navigate('OTP', {
+            username: username.trim(),
+            email: email.trim(),
+            phone: phone.trim(),
+          });
+        } else {
+          await saveUserData(data);
+          navigation.replace('Dashboard');
+        }
+      } else {
+        Alert.alert('Error', data.error || 'Registration failed');
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        Alert.alert(
+          '⏱️ Server Timeout',
+          'The server is waking up. Please wait 30 seconds and try again.',
+          [{ text: 'RETRY', onPress: handleRegister }]
+        );
+      } else {
+        Alert.alert('Connection Error', `Cannot connect to server.\n\n${e.message}`);
+      }
     }
     setLoading(false);
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-
-      {/* Banner */}
-      <View style={styles.banner}>
-        <View style={styles.flagStripe} />
-        <View style={styles.flagStripeRed} />
-        <View style={styles.flagStripe} />
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* Flag Banner */}
+      <View style={styles.flagBanner}>
+        <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
+        <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
+        <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
       </View>
 
       {/* Header */}
@@ -142,13 +165,12 @@ export default function RegisterScreen({ navigation }) {
           JOIN <Text style={styles.titleAccent}>SCILEARN</Text>
         </Text>
         <Text style={styles.subtitle}>
-          Kenya's #1 Tech Learning Platform
+          Kenya's #1 Tech Learning Platform 🇰🇪
         </Text>
       </View>
 
-      {/* Form */}
+      {/* Form Card */}
       <View style={styles.formCard}>
-
         <View style={styles.formHeader}>
           <Text style={styles.formTitle}>CREATE ACCOUNT</Text>
           <Text style={styles.formSub}>Fill in your details to get started</Text>
@@ -165,6 +187,7 @@ export default function RegisterScreen({ navigation }) {
           onFocus={() => setFocusedInput('username')}
           onBlur={() => setFocusedInput(null)}
           autoCapitalize="none"
+          autoCorrect={false}
         />
 
         {/* Email */}
@@ -179,6 +202,7 @@ export default function RegisterScreen({ navigation }) {
           onBlur={() => setFocusedInput(null)}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
         />
 
         {/* Phone */}
@@ -193,7 +217,9 @@ export default function RegisterScreen({ navigation }) {
           onBlur={() => setFocusedInput(null)}
           keyboardType="phone-pad"
         />
-        <Text style={styles.hint}>Format: 0712345678 or +254712345678</Text>
+        <Text style={styles.hint}>
+          Format: 0712345678 or +254712345678
+        </Text>
 
         {/* Password */}
         <Text style={styles.label}>PASSWORD</Text>
@@ -221,6 +247,35 @@ export default function RegisterScreen({ navigation }) {
           secureTextEntry
         />
 
+        {/* Referral Code Toggle */}
+        <TouchableOpacity
+          style={styles.referralToggle}
+          onPress={() => setShowReferral(!showReferral)}
+        >
+          <Text style={styles.referralToggleText}>
+            {showReferral ? '▼' : '▶'} Have a referral code?
+          </Text>
+        </TouchableOpacity>
+
+        {showReferral && (
+          <>
+            <Text style={styles.label}>REFERRAL CODE (OPTIONAL)</Text>
+            <TextInput
+              style={[styles.input, focusedInput === 'referral' && styles.inputFocused]}
+              placeholder="friend_username"
+              placeholderTextColor={COLORS.textDim}
+              value={form.referralCode}
+              onChangeText={v => update('referralCode', v)}
+              onFocus={() => setFocusedInput('referral')}
+              onBlur={() => setFocusedInput(null)}
+              autoCapitalize="none"
+            />
+            <Text style={styles.hint}>
+              🎁 You and your friend both earn bonus tokens!
+            </Text>
+          </>
+        )}
+
         <AnimatedButton
           label="CREATE ACCOUNT →"
           onPress={handleRegister}
@@ -235,7 +290,7 @@ export default function RegisterScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe</Text>
+      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe 🇰🇪</Text>
     </ScrollView>
   );
 }
@@ -245,25 +300,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: COLORS.bg,
   },
-  banner: {
-    flexDirection: 'row',
-    height: 8,
-  },
-  flagStripe: {
-    flex: 1,
-    backgroundColor: COLORS.green,
-  },
-  flagStripeRed: {
-    flex: 1,
-    backgroundColor: COLORS.red,
-  },
+  flagBanner: { flexDirection: 'row', height: 8 },
+  flagStripe: { flex: 1 },
   headerSection: {
     padding: 28,
     paddingTop: 32,
   },
-  backBtn: {
-    marginBottom: 20,
-  },
+  backBtn: { marginBottom: 20 },
   backText: {
     color: COLORS.blue,
     fontFamily: 'monospace',
@@ -277,9 +320,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     marginBottom: 8,
   },
-  titleAccent: {
-    color: COLORS.green,
-  },
+  titleAccent: { color: COLORS.green },
   subtitle: {
     color: COLORS.textDim,
     fontFamily: 'monospace',
@@ -295,9 +336,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 3,
     borderTopColor: COLORS.blue,
   },
-  formHeader: {
-    marginBottom: 28,
-  },
+  formHeader: { marginBottom: 28 },
   formTitle: {
     color: COLORS.white,
     fontSize: 18,
@@ -340,6 +379,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     letterSpacing: 1,
   },
+  referralToggle: {
+    marginBottom: 12,
+    paddingVertical: 8,
+  },
+  referralToggleText: {
+    color: COLORS.amber,
+    fontFamily: 'monospace',
+    fontSize: 12,
+    letterSpacing: 1,
+  },
   btn: {
     backgroundColor: COLORS.green,
     padding: 16,
@@ -347,6 +396,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
     borderRadius: 4,
+    borderBottomWidth: 3,
+    borderBottomColor: COLORS.greenLight,
   },
   btnText: {
     color: COLORS.white,

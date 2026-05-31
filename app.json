@@ -12,7 +12,8 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.engineer25joe.scilearn"
+      "package": "com.engineer25joe.scilearn",
+      "permissions": []
     },
     "plugins": [
       "expo-router",
@@ -22,15 +23,16 @@
       "react-native-video"
     ],
     "permissions": [
-     "READ_EXTERNAL_STORAGE",
-     "WRITE_EXTERNAL_STORAGE",
-     "MANAGE_EXTERNAL_STORAGE"
+      "READ_EXTERNAL_STORAGE",
+      "WRITE_EXTERNAL_STORAGE",
+      "MANAGE_EXTERNAL_STORAGE"
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "d21d4ea5-fc25-4007-8405-b08a18b338b2"
+        "projectId": "f9e426b9-ae03-4a9e-956d-be1c1cdf7000"
       }
-    }
+    },
+    "owner": "scibase"
   }
 }
