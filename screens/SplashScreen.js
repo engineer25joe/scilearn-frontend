@@ -63,7 +63,7 @@ export default function SplashScreen({ navigation }) {
       if (userData) {
         navigation.replace('Dashboard');
       } else {
-        navigation.replace('Login');
+        navigation.replace('Auth');
       }
     }, 3000);
 
