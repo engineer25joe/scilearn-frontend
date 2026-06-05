@@ -1,8 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, ActivityIndicator,
-  Alert, Platform, Animated, Dimensions
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Animated,
+  Dimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -33,60 +41,64 @@ export default function AuthScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [serverReady, setServerReady] = useState(false);
   const [focusedInput, setFocusedInput] = useState(null);
-
-  // Login form
-  const [loginForm, setLoginForm] = useState({
-    username: '', password: '',
-  });
-
-  // Register form
-  const [registerForm, setRegisterForm] = useState({
-    firstName: '', lastName: '',
-    phone: '', username: '',
-    email: '', password: '',
-    confirmPassword: '', referralCode: '',
-  });
-
   const [showReferral, setShowReferral] = useState(false);
 
-  // Animations
+  const [loginForm, setLoginForm] = useState({
+    username: '',
+    password: '',
+  });
+
+  const [registerForm, setRegisterForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    referralCode: '',
+  });
+
   const tabAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
-    // Animate entrance
     Animated.parallel([
       Animated.timing(fadeAnim, {
-        toValue: 1, duration: 800, useNativeDriver: true,
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
       }),
       Animated.spring(logoScale, {
-        toValue: 1, tension: 50, friction: 8, useNativeDriver: true,
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
       }),
     ]).start();
-
-    // Wake up server
     wakeUpServer();
   }, []);
 
   const wakeUpServer = async () => {
     try {
-      await fetch(`${API_URL}/users/login/`, { method: 'GET' });
-    } catch {}
+      await fetch(API_URL + '/users/login/', { method: 'GET' });
+    } catch (e) {}
     setServerReady(true);
   };
 
-  const switchTab = (tab) => {
+  const switchTab = function(tab) {
     setActiveTab(tab);
     Animated.spring(tabAnim, {
       toValue: tab === 'login' ? 0 : 1,
       useNativeDriver: false,
-      tension: 60, friction: 10,
+      tension: 60,
+      friction: 10,
     }).start();
   };
 
-  const saveUserData = async (data) => {
-    const json = JSON.stringify(data);
+  const saveUserData = async function(data) {
+    var json = JSON.stringify(data);
     if (Platform.OS === 'web') {
       localStorage.setItem('scibase_user', json);
     } else {
@@ -94,21 +106,24 @@ export default function AuthScreen({ navigation }) {
     }
   };
 
-  const validateEmail = (email) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const validateEmail = function(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
 
-  const validatePhone = (phone) =>
-    /^(\+254|0)[17]\d{8}$/.test(phone);
+  const validatePhone = function(phone) {
+    return /^(\+254|0)[17]\d{8}$/.test(phone);
+  };
 
-  const handleLogin = async () => {
-    const { username, password } = loginForm;
+  const handleLogin = async function() {
+    var username = loginForm.username;
+    var password = loginForm.password;
     if (!username.trim() || !password.trim()) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/users/login/`, {
+      var res = await fetch(API_URL + '/users/login/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,10 +131,10 @@ export default function AuthScreen({ navigation }) {
         },
         body: JSON.stringify({
           username: username.trim(),
-          password,
+          password: password,
         }),
       });
-      const data = await res.json();
+      var data = await res.json();
       if (res.ok) {
         await saveUserData(data);
         navigation.replace('Dashboard');
@@ -132,11 +147,15 @@ export default function AuthScreen({ navigation }) {
     setLoading(false);
   };
 
-  const handleRegister = async () => {
-    const {
-      firstName, lastName, phone, username,
-      email, password, confirmPassword, referralCode
-    } = registerForm;
+  const handleRegister = async function() {
+    var firstName = registerForm.firstName;
+    var lastName = registerForm.lastName;
+    var phone = registerForm.phone;
+    var username = registerForm.username;
+    var email = registerForm.email;
+    var password = registerForm.password;
+    var confirmPassword = registerForm.confirmPassword;
+    var referralCode = registerForm.referralCode;
 
     if (!firstName || !lastName || !phone || !username || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill all required fields');
@@ -165,7 +184,7 @@ export default function AuthScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/users/register/`, {
+      var res = await fetch(API_URL + '/users/register/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,14 +193,14 @@ export default function AuthScreen({ navigation }) {
         body: JSON.stringify({
           username: username.trim(),
           email: email.trim(),
-          password,
+          password: password,
           phone_number: phone.trim(),
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           referral_code: referralCode.trim(),
         }),
       });
-      const data = await res.json();
+      var data = await res.json();
       if (res.ok) {
         if (data.requires_verification) {
           navigation.navigate('OTP', {
@@ -202,15 +221,17 @@ export default function AuthScreen({ navigation }) {
     setLoading(false);
   };
 
-  const tabIndicatorLeft = tabAnim.interpolate({
+  var tabIndicatorLeft = tabAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['2%', '51%'],
   });
 
-  const inputStyle = (key) => [
-    styles.input,
-    focusedInput === key && styles.inputFocused,
-  ];
+  var getInputStyle = function(key) {
+    if (focusedInput === key) {
+      return [styles.input, styles.inputFocused];
+    }
+    return styles.input;
+  };
 
   return (
     <ScrollView
@@ -218,13 +239,11 @@ export default function AuthScreen({ navigation }) {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      {/* Background gradient effect */}
       <View style={styles.bgTop} />
       <View style={styles.bgBottom} />
 
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
 
-        {/* Logo Section */}
         <Animated.View style={[styles.logoSection, { transform: [{ scale: logoScale }] }]}>
           <View style={styles.logoBox}>
             <Text style={styles.logoIcon}>🎓</Text>
@@ -235,8 +254,6 @@ export default function AuthScreen({ navigation }) {
           <Text style={styles.appTagline}>
             KENYA'S #1 TECH LEARNING PLATFORM
           </Text>
-
-          {/* Server status */}
           {!serverReady && (
             <View style={styles.serverStatus}>
               <ActivityIndicator color={COLORS.gold} size="small" />
@@ -245,79 +262,76 @@ export default function AuthScreen({ navigation }) {
           )}
         </Animated.View>
 
-        {/* Auth Card */}
         <View style={styles.authCard}>
 
-          {/* Tab Switcher */}
           <View style={styles.tabContainer}>
             <Animated.View style={[styles.tabIndicator, { left: tabIndicatorLeft }]} />
             <TouchableOpacity
               style={styles.tab}
-              onPress={() => switchTab('login')}
+              onPress={function() { switchTab('login'); }}
               activeOpacity={0.8}
             >
-              <Text style={[
-                styles.tabText,
-                activeTab === 'login' && styles.tabTextActive
-              ]}>
+              <Text style={activeTab === 'login' ? [styles.tabText, styles.tabTextActive] : styles.tabText}>
                 LOG IN
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.tab}
-              onPress={() => switchTab('register')}
+              onPress={function() { switchTab('register'); }}
               activeOpacity={0.8}
             >
-              <Text style={[
-                styles.tabText,
-                activeTab === 'register' && styles.tabTextActive
-              ]}>
+              <Text style={activeTab === 'register' ? [styles.tabText, styles.tabTextActive] : styles.tabText}>
                 SIGN UP
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* LOGIN FORM */}
           {activeTab === 'login' && (
             <View style={styles.form}>
+
               <TextInput
-                style={inputStyle('username')}
+                style={getInputStyle('loginUsername')}
                 placeholder="Email or username"
                 placeholderTextColor={COLORS.textDim}
                 value={loginForm.username}
-                onChangeText={v => setLoginForm(f => ({ ...f, username: v }))}
-                onFocus={() => setFocusedInput('username')}
-                onBlur={() => setFocusedInput(null)}
+                onChangeText={function(v) { setLoginForm(function(f) { return Object.assign({}, f, { username: v }); }); }}
+                onFocus={function() { setFocusedInput('loginUsername'); }}
+                onBlur={function() { setFocusedInput(null); }}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
 
-              <View style={styles.passwordContainer}>
+              <View style={focusedInput === 'loginPassword' ? [styles.passwordRow, styles.passwordRowFocused] : styles.passwordRow}>
                 <TextInput
-                  style={[inputStyle('password'), { marginBottom: 0, flex: 1 }]}
+                  style={styles.passwordInput}
                   placeholder="Password"
                   placeholderTextColor={COLORS.textDim}
                   value={loginForm.password}
-                  onChangeText={v => setLoginForm(f => ({ ...f, password: v }))}
-                  onFocus={() => setFocusedInput('password')}
-                  onBlur={() => setFocusedInput(null)}
+                  onChangeText={function(v) { setLoginForm(function(f) { return Object.assign({}, f, { password: v }); }); }}
+                  onFocus={function() { setFocusedInput('loginPassword'); }}
+                  onBlur={function() { setFocusedInput(null); }}
                   secureTextEntry={!showPassword}
                 />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={function() { setShowPassword(!showPassword); }}
+                >
+                  <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Show password */}
               <TouchableOpacity
                 style={styles.showPasswordRow}
-                onPress={() => setShowPassword(!showPassword)}
+                onPress={function() { setShowPassword(!showPassword); }}
               >
-                <View style={[styles.checkbox, showPassword && styles.checkboxChecked]}>
-                  {showPassword && <Text style={styles.checkmark}>✓</Text>}
+                <View style={showPassword ? [styles.checkbox, styles.checkboxChecked] : styles.checkbox}>
+                  {showPassword ? <Text style={styles.checkmark}>✓</Text> : null}
                 </View>
                 <Text style={styles.showPasswordText}>Show password</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.submitBtn, (!serverReady || loading) && { opacity: 0.8 }]}
+                style={loading ? [styles.submitBtn, { opacity: 0.8 }] : styles.submitBtn}
                 onPress={handleLogin}
                 disabled={loading}
                 activeOpacity={0.85}
@@ -328,133 +342,138 @@ export default function AuthScreen({ navigation }) {
                 }
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => switchTab('register')}>
+              <TouchableOpacity onPress={function() { switchTab('register'); }}>
                 <Text style={styles.switchText}>
                   Don't have an account?{' '}
                   <Text style={styles.switchLink}>&lt;click on create&gt;</Text>
                 </Text>
               </TouchableOpacity>
+
             </View>
           )}
 
-          {/* REGISTER FORM */}
           {activeTab === 'register' && (
             <View style={styles.form}>
 
-              {/* First name & Last name row */}
               <View style={styles.row}>
-                <TextInput
-                  style={[inputStyle('firstName'), styles.halfInput]}
-                  placeholder="First name"
-                  placeholderTextColor={COLORS.textDim}
-                  value={registerForm.firstName}
-                  onChangeText={v => setRegisterForm(f => ({ ...f, firstName: v }))}
-                  onFocus={() => setFocusedInput('firstName')}
-                  onBlur={() => setFocusedInput(null)}
-                  autoCapitalize="words"
-                />
-                <TextInput
-                  style={[inputStyle('lastName'), styles.halfInput]}
-                  placeholder="Last name"
-                  placeholderTextColor={COLORS.textDim}
-                  value={registerForm.lastName}
-                  onChangeText={v => setRegisterForm(f => ({ ...f, lastName: v }))}
-                  onFocus={() => setFocusedInput('lastName')}
-                  onBlur={() => setFocusedInput(null)}
-                  autoCapitalize="words"
-                />
+                <View style={styles.halfCol}>
+                  <TextInput
+                    style={getInputStyle('firstName')}
+                    placeholder="First name"
+                    placeholderTextColor={COLORS.textDim}
+                    value={registerForm.firstName}
+                    onChangeText={function(v) { setRegisterForm(function(f) { return Object.assign({}, f, { firstName: v }); }); }}
+                    onFocus={function() { setFocusedInput('firstName'); }}
+                    onBlur={function() { setFocusedInput(null); }}
+                    autoCapitalize="words"
+                  />
+                </View>
+                <View style={styles.halfCol}>
+                  <TextInput
+                    style={getInputStyle('lastName')}
+                    placeholder="Last name"
+                    placeholderTextColor={COLORS.textDim}
+                    value={registerForm.lastName}
+                    onChangeText={function(v) { setRegisterForm(function(f) { return Object.assign({}, f, { lastName: v }); }); }}
+                    onFocus={function() { setFocusedInput('lastName'); }}
+                    onBlur={function() { setFocusedInput(null); }}
+                    autoCapitalize="words"
+                  />
+                </View>
               </View>
 
-              {/* Phone & Username row */}
               <View style={styles.row}>
-                <TextInput
-                  style={[inputStyle('phone'), styles.halfInput]}
-                  placeholder="Phone no."
-                  placeholderTextColor={COLORS.textDim}
-                  value={registerForm.phone}
-                  onChangeText={v => setRegisterForm(f => ({ ...f, phone: v }))}
-                  onFocus={() => setFocusedInput('phone')}
-                  onBlur={() => setFocusedInput(null)}
-                  keyboardType="phone-pad"
-                />
-                <TextInput
-                  style={[inputStyle('regUsername'), styles.halfInput]}
-                  placeholder="Username"
-                  placeholderTextColor={COLORS.textDim}
-                  value={registerForm.username}
-                  onChangeText={v => setRegisterForm(f => ({ ...f, username: v }))}
-                  onFocus={() => setFocusedInput('regUsername')}
-                  onBlur={() => setFocusedInput(null)}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
+                <View style={styles.halfCol}>
+                  <TextInput
+                    style={getInputStyle('phone')}
+                    placeholder="Phone no."
+                    placeholderTextColor={COLORS.textDim}
+                    value={registerForm.phone}
+                    onChangeText={function(v) { setRegisterForm(function(f) { return Object.assign({}, f, { phone: v }); }); }}
+                    onFocus={function() { setFocusedInput('phone'); }}
+                    onBlur={function() { setFocusedInput(null); }}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+                <View style={styles.halfCol}>
+                  <TextInput
+                    style={getInputStyle('regUsername')}
+                    placeholder="Username"
+                    placeholderTextColor={COLORS.textDim}
+                    value={registerForm.username}
+                    onChangeText={function(v) { setRegisterForm(function(f) { return Object.assign({}, f, { username: v }); }); }}
+                    onFocus={function() { setFocusedInput('regUsername'); }}
+                    onBlur={function() { setFocusedInput(null); }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
               </View>
 
-              {/* Email */}
               <TextInput
-                style={inputStyle('email')}
+                style={getInputStyle('email')}
                 placeholder="Email"
                 placeholderTextColor={COLORS.textDim}
                 value={registerForm.email}
-                onChangeText={v => setRegisterForm(f => ({ ...f, email: v }))}
-                onFocus={() => setFocusedInput('email')}
-                onBlur={() => setFocusedInput(null)}
+                onChangeText={function(v) { setRegisterForm(function(f) { return Object.assign({}, f, { email: v }); }); }}
+                onFocus={function() { setFocusedInput('email'); }}
+                onBlur={function() { setFocusedInput(null); }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
 
-              {/* Password */}
-              <View style={styles.passwordContainer}>
+              <View style={focusedInput === 'regPassword' ? [styles.passwordRow, styles.passwordRowFocused] : styles.passwordRow}>
                 <TextInput
-                  style={[inputStyle('regPassword'), { marginBottom: 0, flex: 1 }]}
+                  style={styles.passwordInput}
                   placeholder="Password"
                   placeholderTextColor={COLORS.textDim}
                   value={registerForm.password}
-                  onChangeText={v => setRegisterForm(f => ({ ...f, password: v }))}
-                  onFocus={() => setFocusedInput('regPassword')}
-                  onBlur={() => setFocusedInput(null)}
+                  onChangeText={function(v) { setRegisterForm(function(f) { return Object.assign({}, f, { password: v }); }); }}
+                  onFocus={function() { setFocusedInput('regPassword'); }}
+                  onBlur={function() { setFocusedInput(null); }}
                   secureTextEntry={!showPassword}
                 />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={function() { setShowPassword(!showPassword); }}
+                >
+                  <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Confirm Password */}
-              <View style={styles.passwordContainer}>
+              <View style={focusedInput === 'confirmPassword' ? [styles.passwordRow, styles.passwordRowFocused] : styles.passwordRow}>
                 <TextInput
-                  style={[inputStyle('confirmPassword'), { marginBottom: 0, flex: 1 }]}
+                  style={styles.passwordInput}
                   placeholder="Confirm password"
                   placeholderTextColor={COLORS.textDim}
                   value={registerForm.confirmPassword}
-                  onChangeText={v => setRegisterForm(f => ({ ...f, confirmPassword: v }))}
-                  onFocus={() => setFocusedInput('confirmPassword')}
-                  onBlur={() => setFocusedInput(null)}
+                  onChangeText={function(v) { setRegisterForm(function(f) { return Object.assign({}, f, { confirmPassword: v }); }); }}
+                  onFocus={function() { setFocusedInput('confirmPassword'); }}
+                  onBlur={function() { setFocusedInput(null); }}
                   secureTextEntry={!showConfirmPassword}
                 />
                 <TouchableOpacity
                   style={styles.eyeBtn}
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onPress={function() { setShowConfirmPassword(!showConfirmPassword); }}
                 >
-                  <Text style={styles.eyeIcon}>
-                    {showConfirmPassword ? '🙈' : '👁️'}
-                  </Text>
+                  <Text style={styles.eyeIcon}>{showConfirmPassword ? '🙈' : '👁️'}</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Show password */}
               <TouchableOpacity
                 style={styles.showPasswordRow}
-                onPress={() => setShowPassword(!showPassword)}
+                onPress={function() { setShowPassword(!showPassword); }}
               >
-                <View style={[styles.checkbox, showPassword && styles.checkboxChecked]}>
-                  {showPassword && <Text style={styles.checkmark}>✓</Text>}
+                <View style={showPassword ? [styles.checkbox, styles.checkboxChecked] : styles.checkbox}>
+                  {showPassword ? <Text style={styles.checkmark}>✓</Text> : null}
                 </View>
                 <Text style={styles.showPasswordText}>Show password</Text>
               </TouchableOpacity>
 
-              {/* Referral Code */}
               <TouchableOpacity
                 style={styles.referralToggle}
-                onPress={() => setShowReferral(!showReferral)}
+                onPress={function() { setShowReferral(!showReferral); }}
               >
                 <Text style={styles.referralToggleText}>
                   {showReferral ? '▼' : '▶'} Have a referral code?
@@ -463,19 +482,19 @@ export default function AuthScreen({ navigation }) {
 
               {showReferral && (
                 <TextInput
-                  style={inputStyle('referral')}
+                  style={getInputStyle('referral')}
                   placeholder="Referral code (optional)"
                   placeholderTextColor={COLORS.textDim}
                   value={registerForm.referralCode}
-                  onChangeText={v => setRegisterForm(f => ({ ...f, referralCode: v }))}
-                  onFocus={() => setFocusedInput('referral')}
-                  onBlur={() => setFocusedInput(null)}
+                  onChangeText={function(v) { setRegisterForm(function(f) { return Object.assign({}, f, { referralCode: v }); }); }}
+                  onFocus={function() { setFocusedInput('referral'); }}
+                  onBlur={function() { setFocusedInput(null); }}
                   autoCapitalize="none"
                 />
               )}
 
               <TouchableOpacity
-                style={[styles.submitBtn, (!serverReady || loading) && { opacity: 0.8 }]}
+                style={loading ? [styles.submitBtn, { opacity: 0.8 }] : styles.submitBtn}
                 onPress={handleRegister}
                 disabled={loading}
                 activeOpacity={0.85}
@@ -486,12 +505,13 @@ export default function AuthScreen({ navigation }) {
                 }
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => switchTab('login')}>
+              <TouchableOpacity onPress={function() { switchTab('login'); }}>
                 <Text style={styles.switchText}>
                   Already have an account?{' '}
                   <Text style={styles.switchLink}>&lt;click on login&gt;</Text>
                 </Text>
               </TouchableOpacity>
+
             </View>
           )}
 
@@ -503,14 +523,16 @@ export default function AuthScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+var styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: COLORS.bg2,
   },
   bgTop: {
     position: 'absolute',
-    top: 0, left: 0, right: 0,
+    top: 0,
+    left: 0,
+    right: 0,
     height: 300,
     backgroundColor: COLORS.bg,
     borderBottomLeftRadius: 60,
@@ -518,7 +540,9 @@ const styles = StyleSheet.create({
   },
   bgBottom: {
     position: 'absolute',
-    bottom: 0, left: 0, right: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: 200,
     backgroundColor: COLORS.bg,
     borderTopLeftRadius: 60,
@@ -535,7 +559,8 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   logoBox: {
-    width: 80, height: 80,
+    width: 80,
+    height: 80,
     borderRadius: 20,
     backgroundColor: COLORS.surface,
     borderWidth: 2,
@@ -543,13 +568,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: COLORS.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
     elevation: 8,
   },
-  logoIcon: { fontSize: 40 },
+  logoIcon: {
+    fontSize: 40,
+  },
   appName: {
     fontSize: 36,
     fontWeight: '900',
@@ -557,7 +580,9 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
     fontFamily: 'monospace',
   },
-  appNameAccent: { color: COLORS.gold },
+  appNameAccent: {
+    color: COLORS.gold,
+  },
   appTagline: {
     color: COLORS.textDim,
     fontSize: 10,
@@ -568,22 +593,18 @@ const styles = StyleSheet.create({
   serverStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     marginTop: 8,
   },
   serverStatusText: {
     color: COLORS.gold,
     fontFamily: 'monospace',
     fontSize: 11,
+    marginLeft: 8,
   },
   authCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 24,
     padding: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
     elevation: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -599,16 +620,154 @@ const styles = StyleSheet.create({
   },
   tabIndicator: {
     position: 'absolute',
-    top: 4, bottom: 4,
+    top: 4,
+    bottom: 4,
     width: '47%',
     backgroundColor: COLORS.surface2,
     borderRadius: 14,
-    shadowColor: COLORS.gold,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
     elevation: 4,
   },
   tab: {
     flex: 1,
-    alig
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  tabText: {
+    color: COLORS.textDim,
+    fontFamily: 'monospace',
+    fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: 1,
+  },
+  tabTextActive: {
+    color: COLORS.gold,
+  },
+  form: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    marginBottom: 0,
+  },
+  halfCol: {
+    flex: 1,
+    paddingRight: 5,
+  },
+  input: {
+    backgroundColor: COLORS.bg2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: 14,
+    color: COLORS.text,
+    fontFamily: 'monospace',
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  inputFocused: {
+    borderColor: COLORS.gold,
+    borderWidth: 1.5,
+    backgroundColor: COLORS.surface2,
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bg2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  passwordRowFocused: {
+    borderColor: COLORS.gold,
+    borderWidth: 1.5,
+    backgroundColor: COLORS.surface2,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 14,
+    color: COLORS.text,
+    fontFamily: 'monospace',
+    fontSize: 13,
+  },
+  eyeBtn: {
+    padding: 14,
+  },
+  eyeIcon: {
+    fontSize: 16,
+  },
+  showPasswordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.bg2,
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.gold,
+    borderColor: COLORS.gold,
+  },
+  checkmark: {
+    color: COLORS.bg2,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  showPasswordText: {
+    color: COLORS.textDim,
+    fontFamily: 'monospace',
+    fontSize: 12,
+  },
+  referralToggle: {
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  referralToggleText: {
+    color: COLORS.gold,
+    fontFamily: 'monospace',
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  submitBtn: {
+    backgroundColor: COLORS.gold,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 6,
+  },
+  submitBtnText: {
+    color: COLORS.bg2,
+    fontFamily: 'monospace',
+    fontWeight: '900',
+    fontSize: 15,
+    letterSpacing: 3,
+  },
+  switchText: {
+    textAlign: 'center',
+    color: COLORS.textDim,
+    fontFamily: 'monospace',
+    fontSize: 12,
+  },
+  switchLink: {
+    color: COLORS.gold,
+    fontWeight: '700',
+  },
+  footer: {
+    textAlign: 'center',
+    color: COLORS.textDim,
+    fontSize: 11,
+    marginTop: 32,
+    fontFamily: 'monospace',
+  },
+});
