@@ -202,16 +202,8 @@ export default function AuthScreen({ navigation }) {
       });
       var data = await res.json();
       if (res.ok) {
-        if (data.requires_verification) {
-          navigation.navigate('OTP', {
-            username: username.trim(),
-            email: email.trim(),
-            phone: phone.trim(),
-          });
-        } else {
           await saveUserData(data);
           navigation.replace('Dashboard');
-        }
       } else {
         Alert.alert('Error', data.error || 'Registration failed');
       }
