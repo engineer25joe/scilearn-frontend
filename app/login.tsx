@@ -1,4 +1,4 @@
-import LoginScreen from '../screens/LoginScreen';
+import LoginScreen from '../screens/AuthScreen';
 import { useRouter } from 'expo-router';
 
 export default function Login() {
