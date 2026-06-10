@@ -36,7 +36,7 @@ function GridButton({ icon, label, onPress, color, colors }) {
   return (
     <Animated.View style={{ transform: [{ scale }], width: '47%' }}>
       <TouchableOpacity
-        style={[{
+        style={{
           borderWidth: 1,
           borderColor: colors.border,
           padding: 20,
@@ -44,7 +44,7 @@ function GridButton({ icon, label, onPress, color, colors }) {
           backgroundColor: colors.surface,
           borderTopWidth: 3,
           borderTopColor: color || colors.green,
-        }]}
+        }}
         onPress={onPress}
         onPressIn={() => Animated.spring(scale, {
           toValue: 0.95, useNativeDriver: true, speed: 50
@@ -71,6 +71,7 @@ export default function DashboardScreen({ navigation }) {
   const [search, setSearch] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [trendingCourses, setTrendingCourses] = useState([]);
+  const [lastWatched, setLastWatched] = useState(null);
 
   const getUserData = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
@@ -120,6 +121,19 @@ export default function DashboardScreen({ navigation }) {
     } catch {}
   };
 
+  const fetchLastWatched = async (username) => {
+    try {
+      const res = await fetch(
+        'https://scilearnbackend.onrender.com/api/courses/last-watched/',
+        { headers: { 'X-Username': username } }
+      );
+      const data = await res.json();
+      if (res.ok && data.has_last_watched) {
+        setLastWatched(data);
+      }
+    } catch {}
+  };
+
   const loadUser = async () => {
     setLoading(true);
     const userData = await getUserData();
@@ -139,6 +153,7 @@ export default function DashboardScreen({ navigation }) {
       }
 
       setUnreadCount(unread);
+      fetchLastWatched(parsed.username);
     }
     setLoading(false);
   };
@@ -154,7 +169,17 @@ export default function DashboardScreen({ navigation }) {
     } else {
       await AsyncStorage.removeItem('scibase_user');
     }
-    navigation.replace('Login');
+    navigation.replace('Auth');
+  };
+
+  const resumeLesson = () => {
+    if (!lastWatched) return;
+    navigation.navigate('Lesson', {
+      lessonId: lastWatched.lesson_id,
+      title: lastWatched.lesson_title,
+      videoId: lastWatched.video_id,
+      tokenCost: lastWatched.token_cost,
+    });
   };
 
   if (loading) {
@@ -294,6 +319,71 @@ export default function DashboardScreen({ navigation }) {
         </View>
       </AnimatedCard>
 
+      {/* Resume Learning Card */}
+      <AnimatedCard delay={250}>
+        {lastWatched ? (
+          <View style={styles.resumeSection}>
+            <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
+              // RESUME LEARNING
+            </Text>
+            <TouchableOpacity
+              style={[styles.resumeCard, {
+                borderColor: colors.green,
+                borderLeftColor: colors.green,
+                backgroundColor: colors.surfaceGreen,
+              }]}
+              onPress={resumeLesson}
+            >
+              <View style={styles.resumeLeft}>
+                <Text style={styles.resumePlayIcon}>▶️</Text>
+              </View>
+              <View style={styles.resumeInfo}>
+                <Text style={[styles.resumeCourse, { color: colors.textDim }]}
+                  numberOfLines={1}>
+                  📚 {lastWatched.course_title}
+                </Text>
+                <Text style={[styles.resumeLesson, { color: colors.white }]}
+                  numberOfLines={1}>
+                  {lastWatched.lesson_title}
+                </Text>
+                <Text style={[styles.resumeAction, { color: colors.green }]}>
+                  Tap to continue →
+                </Text>
+              </View>
+              <View style={[styles.resumeBtn, { backgroundColor: colors.green }]}>
+                <Text style={[styles.resumeBtnText, { color: colors.white }]}>
+                  RESUME
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.resumeSection}>
+            <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
+              // START LEARNING
+            </Text>
+            <TouchableOpacity
+              style={[styles.resumeCard, {
+                borderColor: colors.blue,
+                borderLeftColor: colors.blue,
+                backgroundColor: colors.surfaceBlue,
+              }]}
+              onPress={() => navigation.navigate('Courses')}
+            >
+              <Text style={styles.resumePlayIcon}>📚</Text>
+              <View style={styles.resumeInfo}>
+                <Text style={[styles.resumeLesson, { color: colors.white }]}>
+                  You haven't started yet!
+                </Text>
+                <Text style={[styles.resumeAction, { color: colors.blue }]}>
+                  Browse courses and start learning →
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+      </AnimatedCard>
+
       {/* Quick Actions */}
       <AnimatedCard delay={300}>
         <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
@@ -399,51 +489,6 @@ export default function DashboardScreen({ navigation }) {
         </ScrollView>
       </AnimatedCard>
 
-      {/* Continue Learning */}
-      <AnimatedCard delay={500}>
-        <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
-          // CONTINUE LEARNING
-        </Text>
-        <TouchableOpacity
-          style={[styles.continueCard, {
-            borderColor: colors.blue,
-            borderLeftColor: colors.blue,
-            backgroundColor: colors.surfaceBlue,
-          }]}
-          onPress={() => navigation.navigate('Courses')}
-        >
-          <Text style={styles.continueIcon}>▶️</Text>
-          <View style={styles.continueText}>
-            <Text style={[styles.continueTitleText, { color: colors.white }]}>
-              START LEARNING TODAY!
-            </Text>
-            <Text style={[styles.continueSub, { color: colors.blue }]}>
-              Browse our course library →
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </AnimatedCard>
-
-      {/* Unverified Banner */}
-      {!user?.is_verified && (
-        <AnimatedCard delay={600}>
-          <View style={[styles.unverifiedBanner, {
-            borderColor: colors.amber,
-            borderLeftColor: colors.amber,
-          }]}>
-            <Text style={styles.unverifiedIcon}>⚠️</Text>
-            <View style={styles.unverifiedText}>
-              <Text style={[styles.unverifiedTitle, { color: colors.amber }]}>
-                ACCOUNT NOT VERIFIED
-              </Text>
-              <Text style={[styles.unverifiedSub, { color: colors.textDim }]}>
-                Check your email for OTP verification
-              </Text>
-            </View>
-          </View>
-        </AnimatedCard>
-      )}
-
       <Text style={[styles.footer, { color: colors.textDim }]}>
         Developed by: 💞🙏 Engineer Joe 🇰🇪
       </Text>
@@ -538,9 +583,37 @@ const styles = StyleSheet.create({
     fontSize: 11, letterSpacing: 1,
   },
   topupIcon: { fontSize: 20, marginTop: 4 },
+  resumeSection: { marginBottom: 8 },
   sectionTitle: {
     fontSize: 10, letterSpacing: 3,
     fontFamily: 'monospace', paddingHorizontal: 20, marginBottom: 12,
+  },
+  resumeCard: {
+    marginHorizontal: 20, marginBottom: 16,
+    borderWidth: 1, borderLeftWidth: 4,
+    padding: 16, flexDirection: 'row',
+    alignItems: 'center', gap: 12,
+  },
+  resumeLeft: { alignItems: 'center' },
+  resumePlayIcon: { fontSize: 32 },
+  resumeInfo: { flex: 1 },
+  resumeCourse: {
+    fontFamily: 'monospace', fontSize: 10,
+    letterSpacing: 1, marginBottom: 4,
+  },
+  resumeLesson: {
+    fontFamily: 'monospace', fontWeight: '900',
+    fontSize: 14, marginBottom: 4,
+  },
+  resumeAction: {
+    fontFamily: 'monospace', fontSize: 11,
+  },
+  resumeBtn: {
+    paddingVertical: 8, paddingHorizontal: 12,
+  },
+  resumeBtnText: {
+    fontFamily: 'monospace', fontWeight: '900',
+    fontSize: 11, letterSpacing: 1,
   },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
@@ -564,34 +637,6 @@ const styles = StyleSheet.create({
   trendingAction: {
     fontFamily: 'monospace', fontSize: 11,
     fontWeight: '700', letterSpacing: 1,
-  },
-  continueCard: {
-    marginHorizontal: 20, marginBottom: 24,
-    borderWidth: 1, borderLeftWidth: 4,
-    padding: 20, flexDirection: 'row', alignItems: 'center',
-  },
-  continueIcon: { fontSize: 32, marginRight: 16 },
-  continueText: { flex: 1 },
-  continueTitleText: {
-    fontFamily: 'monospace', fontWeight: '900',
-    fontSize: 13, marginBottom: 4,
-  },
-  continueSub: { fontFamily: 'monospace', fontSize: 12 },
-  unverifiedBanner: {
-    marginHorizontal: 20, marginBottom: 16,
-    borderWidth: 1, borderLeftWidth: 4,
-    backgroundColor: 'rgba(255,215,0,0.05)',
-    padding: 16, flexDirection: 'row',
-    alignItems: 'center', gap: 12,
-  },
-  unverifiedIcon: { fontSize: 24 },
-  unverifiedText: { flex: 1 },
-  unverifiedTitle: {
-    fontFamily: 'monospace', fontWeight: '900',
-    fontSize: 12, letterSpacing: 1,
-  },
-  unverifiedSub: {
-    fontFamily: 'monospace', fontSize: 11, marginTop: 4,
   },
   footer: {
     textAlign: 'center', fontSize: 11,
