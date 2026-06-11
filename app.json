@@ -7,15 +7,30 @@
     "icon": "./assets/images/icon.png",
     "scheme": "scilearn",
     "userInterfaceStyle": "automatic",
+    
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#ffffff"
+     "adaptiveIcon": {
+       "foregroundImage": "./assets/images/icon.png",
+       "backgroundColor": "#006600"
       },
-      "package": "com.engineer25joe.scilearn",
-      "permissions": []
+     "package": "com.engineer25joe.scilearn",
+     "permissions": [
+       "RECEIVE_BOOT_COMPLETED",
+       "VIBRATE",
+       "INTERNET",
+       "ACCESS_NETWORK_STATE"
+      ],
+     "googleServicesFile": "./google-services.json"
     },
     "plugins": [
+     [
+       "expo-notifications",
+       {
+         "icon": "./assets/images/react-logo.png",
+         "color": "#006600",
+         "sounds": []
+        }
+      ]
       "expo-router",
       "expo-font",
       "expo-image",
