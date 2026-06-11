@@ -30,7 +30,7 @@
          "color": "#006600",
          "sounds": []
         }
-      ]
+      ],
       "expo-router",
       "expo-font",
       "expo-image",
