@@ -289,6 +289,7 @@ export default function AuthScreen({ navigation }) {
                 onChangeText={function(v) { setLoginForm(function(f) { return Object.assign({}, f, { username: v }); }); }}
                 onFocus={function() { setFocusedInput('loginUsername'); }}
                 onBlur={function() { setFocusedInput(null); }}
+                keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
