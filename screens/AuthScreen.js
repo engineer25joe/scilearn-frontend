@@ -135,9 +135,14 @@ export default function AuthScreen({ navigation }) {
         }),
       });
       var data = await res.json();
+      
       if (res.ok) {
         await saveUserData(data);
-        navigation.replace('Dashboard');
+        if (data.is_admin) {
+          navigation.replace('AdminDashboard');
+        } else {
+          navigation.replace('Dashboard');
+        }
       } else {
         Alert.alert('Login Failed', data.error || 'Invalid credentials');
       }
@@ -201,9 +206,16 @@ export default function AuthScreen({ navigation }) {
         }),
       });
       var data = await res.json();
+
       if (res.ok) {
-          await saveUserData(data);
-          navigation.replace('Dashboard');
+        await saveUserData(data);
+        if (data.is_admin) {
+           navigation.replace('AdminDashboard');
+         } else {
+           navigation.replace('Dashboard');
+         }
+      }
+
       } else {
         Alert.alert('Error', data.error || 'Registration failed');
       }
