@@ -80,7 +80,7 @@ export default function AuthScreen({ navigation }) {
     wakeUpServer();
   }, []);
 
-  const wakeUpServer = async () => {
+  const wakeUpServer = async function() {
     try {
       await fetch(API_URL + '/users/login/', { method: 'GET' });
     } catch (e) {}
@@ -135,7 +135,6 @@ export default function AuthScreen({ navigation }) {
         }),
       });
       var data = await res.json();
-      
       if (res.ok) {
         await saveUserData(data);
         if (data.is_admin) {
@@ -206,16 +205,13 @@ export default function AuthScreen({ navigation }) {
         }),
       });
       var data = await res.json();
-
       if (res.ok) {
         await saveUserData(data);
         if (data.is_admin) {
-           navigation.replace('AdminDashboard');
-         } else {
-           navigation.replace('Dashboard');
-         }
-      }
-
+          navigation.replace('AdminDashboard');
+        } else {
+          navigation.replace('Dashboard');
+        }
       } else {
         Alert.alert('Error', data.error || 'Registration failed');
       }
@@ -301,7 +297,6 @@ export default function AuthScreen({ navigation }) {
                 onChangeText={function(v) { setLoginForm(function(f) { return Object.assign({}, f, { username: v }); }); }}
                 onFocus={function() { setFocusedInput('loginUsername'); }}
                 onBlur={function() { setFocusedInput(null); }}
-                keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
