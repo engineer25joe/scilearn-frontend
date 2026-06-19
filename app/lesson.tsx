@@ -1,3 +1,5 @@
+import { WebView } from 'react-native-webview';
+import { Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   View, Text, TouchableOpacity, StyleSheet,
@@ -200,26 +202,21 @@ export default function Lesson() {
     );
   };
 
-  const downloadPdfNotes = () => {
-    const notesUrl = `https://scilearnbackend.onrender.com/api/courses/notes/${lessonId}/`;
-    if (Platform.OS === 'web') {
-      (window as any).open(notesUrl, '_blank');
-    } else {
-      Alert.alert(
-        '📄 PDF Notes',
-        'Open PDF notes in browser?',
-        [
-          { text: 'CANCEL', style: 'cancel' },
-          {
-            text: 'OPEN',
-            onPress: () => {
-              const Linking = require('react-native').Linking;
-              Linking.openURL(notesUrl);
-            }
-          }
-        ]
-      );
-    }
+  const [pdfVisible, setPdfVisible] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
+  
+  const downloadPdfNotes = async () => {
+      const userData = await getUserData();
+      const user = userData ? JSON.parse(userData) : null;
+      const username = user ? user.username : '';
+      const notesUrl = `https://scilearnbackend.onrender.com/api/courses/notes/${lessonId}/?username=${encodeURIComponent(username)}`;
+  
+      if (Platform.OS === 'web') {
+        (window as any).open(notesUrl, '_blank');
+      } else {
+        setPdfUrl(notesUrl);
+        setPdfVisible(true);
+      }
   };
 
   const renderVideo = () => {
@@ -432,6 +429,55 @@ export default function Lesson() {
         </Text>
       </Animated.View>
     </ScrollView>
+
+
+    <Modal
+      visible={pdfVisible}
+      animationType="slide"
+      onRequestClose={() => setPdfVisible(false)}
+    >
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: 16,
+          paddingTop: 40,
+          backgroundColor: COLORS.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: COLORS.border,
+        }}>
+          <Text style={{
+            color: COLORS.amber,
+            fontFamily: 'monospace',
+            fontWeight: '900',
+            fontSize: 14,
+          }}>📄 LESSON NOTES</Text>
+          <TouchableOpacity onPress={() => setPdfVisible(false)}>
+            <Text style={{
+              color: COLORS.red,
+              fontFamily: 'monospace',
+              fontWeight: '900',
+              fontSize: 13,
+            }}>✕ CLOSE</Text>
+          </TouchableOpacity>
+        </View>
+        {pdfUrl ? (
+          <WebView
+            source={{ uri: pdfUrl }}
+            style={{ flex: 1, backgroundColor: '#fff' }}
+            startInLoadingState
+            renderLoading={() => (
+              <ActivityIndicator
+                color={COLORS.green}
+                size="large"
+                style={{ marginTop: 40 }}
+              />
+            )}
+          />
+        ) : null}
+      </View>
+    </Modal>
   );
 }
 
