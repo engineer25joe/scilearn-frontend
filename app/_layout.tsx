@@ -35,6 +35,7 @@ export default function RootLayout() {
         <Stack.Screen name="splash" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="dashboard" options={{ headerShown: false }} />
+        <Stack.Screen name="admindashboard" options={{ headerShown: false }} />
         <Stack.Screen name="courses" options={{ headerShown: false }} />
         <Stack.Screen name="tokens" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
