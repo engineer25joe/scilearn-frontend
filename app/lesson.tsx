@@ -1,13 +1,12 @@
-import { WebView } from 'react-native-webview';
-import { Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, Platform,
-  Animated, ScrollView
+  Animated, ScrollView, Modal
 } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WebView } from 'react-native-webview';
 import {
   isVideoRefSaved,
   downloadVideo,
@@ -53,6 +52,8 @@ export default function Lesson() {
   const [notesText, setNotesText] = useState('');
   const [hasPdf, setHasPdf] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [pdfVisible, setPdfVisible] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
   const scale = useRef(new Animated.Value(1)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -202,21 +203,18 @@ export default function Lesson() {
     );
   };
 
-  const [pdfVisible, setPdfVisible] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState('');
-  
   const downloadPdfNotes = async () => {
-      const userData = await getUserData();
-      const user = userData ? JSON.parse(userData) : null;
-      const username = user ? user.username : '';
-      const notesUrl = `https://scilearnbackend.onrender.com/api/courses/notes/${lessonId}/?username=${encodeURIComponent(username)}`;
-  
-      if (Platform.OS === 'web') {
-        (window as any).open(notesUrl, '_blank');
-      } else {
-        setPdfUrl(notesUrl);
-        setPdfVisible(true);
-      }
+    const userData = await getUserData();
+    const user = userData ? JSON.parse(userData) : null;
+    const username = user ? user.username : '';
+    const notesUrl = `https://scilearnbackend.onrender.com/api/courses/notes/${lessonId}/?username=${encodeURIComponent(username)}`;
+
+    if (Platform.OS === 'web') {
+      (window as any).open(notesUrl, '_blank');
+    } else {
+      setPdfUrl(notesUrl);
+      setPdfVisible(true);
+    }
   };
 
   const renderVideo = () => {
@@ -258,226 +256,228 @@ export default function Lesson() {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
-      {/* Flag Banner */}
-      <View style={styles.flagBanner}>
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
-      </View>
-
-      <Animated.View style={{ opacity: contentOpacity }}>
-
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backText}>← BACK</Text>
-          </TouchableOpacity>
-          <Text style={styles.tag}>// LESSON</Text>
-          <Text style={styles.title}>{title}</Text>
-          <View style={styles.costBadge}>
-            <Text style={styles.costBadgeText}>
-              🪙 {tokenCost} TOKEN LESSON
-            </Text>
-          </View>
+        {/* Flag Banner */}
+        <View style={styles.flagBanner}>
+          <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
+          <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
+          <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
         </View>
 
-        {/* Video Box */}
-        <View style={styles.videoBox}>
-          {accessed ? renderVideo() : (
-            <View style={styles.locked}>
-              <Text style={styles.lockIcon}>🔒</Text>
-              <Text style={styles.lockTitle}>LESSON LOCKED</Text>
-              <Text style={styles.lockText}>Unlock to start watching</Text>
-              <View style={styles.lockCostBox}>
-                <Text style={styles.lockCost}>{tokenCost} 🪙 TOKENS</Text>
+        <Animated.View style={{ opacity: contentOpacity }}>
+
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+              <Text style={styles.backText}>← BACK</Text>
+            </TouchableOpacity>
+            <Text style={styles.tag}>// LESSON</Text>
+            <Text style={styles.title}>{title}</Text>
+            <View style={styles.costBadge}>
+              <Text style={styles.costBadgeText}>
+                🪙 {tokenCost} TOKEN LESSON
+              </Text>
+            </View>
+          </View>
+
+          {/* Video Box */}
+          <View style={styles.videoBox}>
+            {accessed ? renderVideo() : (
+              <View style={styles.locked}>
+                <Text style={styles.lockIcon}>🔒</Text>
+                <Text style={styles.lockTitle}>LESSON LOCKED</Text>
+                <Text style={styles.lockText}>Unlock to start watching</Text>
+                <View style={styles.lockCostBox}>
+                  <Text style={styles.lockCost}>{tokenCost} 🪙 TOKENS</Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Unlock Section */}
+          {!accessed && (
+            <View style={styles.unlockSection}>
+              <View style={styles.unlockInfo}>
+                <Text style={styles.unlockInfoIcon}>ℹ️</Text>
+                <Text style={styles.unlockInfoText}>
+                  This lesson costs{' '}
+                  <Text style={styles.unlockCostText}>{tokenCost} tokens</Text>.
+                  Tokens are deducted once — rewatch for free anytime!
+                </Text>
+              </View>
+              <Animated.View style={{ transform: [{ scale }] }}>
+                <TouchableOpacity
+                  style={styles.unlockBtn}
+                  onPress={accessLesson}
+                  onPressIn={() => Animated.spring(scale, {
+                    toValue: 0.96, useNativeDriver: true, speed: 50
+                  }).start()}
+                  onPressOut={() => Animated.spring(scale, {
+                    toValue: 1, useNativeDriver: true, speed: 50
+                  }).start()}
+                  disabled={loading}
+                  activeOpacity={1}
+                >
+                  {loading ? (
+                    <ActivityIndicator color={COLORS.white} />
+                  ) : (
+                    <View style={styles.unlockBtnInner}>
+                      <Text style={styles.unlockBtnText}>🔓 UNLOCK LESSON</Text>
+                      <Text style={styles.unlockBtnCost}>
+                        {tokenCost} 🪙 tokens
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+          )}
+
+          {/* Success Box */}
+          {accessed && (
+            <View style={styles.successBox}>
+              <Text style={styles.successIcon}>✅</Text>
+              <View>
+                <Text style={styles.successText}>LESSON UNLOCKED!</Text>
+                <Text style={styles.successSub}>
+                  Rewatch anytime for free
+                </Text>
               </View>
             </View>
           )}
-        </View>
 
-        {/* Unlock Section */}
-        {!accessed && (
-          <View style={styles.unlockSection}>
-            <View style={styles.unlockInfo}>
-              <Text style={styles.unlockInfoIcon}>ℹ️</Text>
-              <Text style={styles.unlockInfoText}>
-                This lesson costs{' '}
-                <Text style={styles.unlockCostText}>{tokenCost} tokens</Text>.
-                Tokens are deducted once — rewatch for free anytime!
-              </Text>
-            </View>
-            <Animated.View style={{ transform: [{ scale }] }}>
-              <TouchableOpacity
-                style={styles.unlockBtn}
-                onPress={accessLesson}
-                onPressIn={() => Animated.spring(scale, {
-                  toValue: 0.96, useNativeDriver: true, speed: 50
-                }).start()}
-                onPressOut={() => Animated.spring(scale, {
-                  toValue: 1, useNativeDriver: true, speed: 50
-                }).start()}
-                disabled={loading}
-                activeOpacity={1}
-              >
-                {loading ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <View style={styles.unlockBtnInner}>
-                    <Text style={styles.unlockBtnText}>🔓 UNLOCK LESSON</Text>
-                    <Text style={styles.unlockBtnCost}>
-                      {tokenCost} 🪙 tokens
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-        )}
+          {/* Action Buttons — only when unlocked */}
+          {accessed && (
+            <View style={styles.actionButtons}>
 
-        {/* Success Box */}
-        {accessed && (
-          <View style={styles.successBox}>
-            <Text style={styles.successIcon}>✅</Text>
-            <View>
-              <Text style={styles.successText}>LESSON UNLOCKED!</Text>
-              <Text style={styles.successSub}>
-                Rewatch anytime for free
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Action Buttons — only when unlocked */}
-        {accessed && (
-          <View style={styles.actionButtons}>
-
-            {/* Notes Button — text notes */}
-            {notesText ? (
-              <TouchableOpacity
-                style={styles.notesToggleBtn}
-                onPress={() => setShowNotes(!showNotes)}
-              >
-                <Text style={styles.notesToggleBtnText}>
-                  {showNotes ? '📖 HIDE NOTES' : '📖 VIEW NOTES'}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-
-            {/* PDF Notes Button */}
-            {hasPdf ? (
-              <TouchableOpacity
-                style={styles.pdfBtn}
-                onPress={downloadPdfNotes}
-              >
-                <Text style={styles.pdfBtnText}>
-                  📄 DOWNLOAD PDF NOTES
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-
-            {/* Download Video Button — mobile only */}
-            {Platform.OS !== 'web' && (
-              <TouchableOpacity
-                style={[
-                  styles.downloadBtn,
-                  isDownloaded && styles.downloadBtnActive,
-                ]}
-                onPress={handleDownload}
-                disabled={downloading}
-              >
-                {downloading ? (
-                  <ActivityIndicator color={COLORS.white} size="small" />
-                ) : (
-                  <Text style={styles.downloadBtnText}>
-                    {isDownloaded ? '🗑️ REMOVE OFFLINE COPY' : '📥 SAVE FOR OFFLINE'}
+              {/* Notes Button — text notes */}
+              {notesText ? (
+                <TouchableOpacity
+                  style={styles.notesToggleBtn}
+                  onPress={() => setShowNotes(!showNotes)}
+                >
+                  <Text style={styles.notesToggleBtnText}>
+                    {showNotes ? '📖 HIDE NOTES' : '📖 VIEW NOTES'}
                   </Text>
-                )}
+                </TouchableOpacity>
+              ) : null}
+
+              {/* PDF Notes Button */}
+              {hasPdf ? (
+                <TouchableOpacity
+                  style={styles.pdfBtn}
+                  onPress={downloadPdfNotes}
+                >
+                  <Text style={styles.pdfBtnText}>
+                    📄 DOWNLOAD PDF NOTES
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {/* Download Video Button — mobile only */}
+              {Platform.OS !== 'web' && (
+                <TouchableOpacity
+                  style={[
+                    styles.downloadBtn,
+                    isDownloaded && styles.downloadBtnActive,
+                  ]}
+                  onPress={handleDownload}
+                  disabled={downloading}
+                >
+                  {downloading ? (
+                    <ActivityIndicator color={COLORS.white} size="small" />
+                  ) : (
+                    <Text style={styles.downloadBtnText}>
+                      {isDownloaded ? '🗑️ REMOVE OFFLINE COPY' : '📥 SAVE FOR OFFLINE'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {/* Certificate Button */}
+              <TouchableOpacity
+                style={styles.certBtn}
+                onPress={() => {
+                  const certUrl = `https://scilearnbackend.onrender.com/api/courses/certificate/1/`;
+                  if (Platform.OS === 'web') {
+                    (window as any).open(certUrl, '_blank');
+                  } else {
+                    const Linking = require('react-native').Linking;
+                    Linking.openURL(certUrl);
+                  }
+                }}
+              >
+                <Text style={styles.certBtnText}>🏆 GET CERTIFICATE</Text>
               </TouchableOpacity>
-            )}
 
-            {/* Certificate Button */}
-            <TouchableOpacity
-              style={styles.certBtn}
-              onPress={() => {
-                const certUrl = `https://scilearnbackend.onrender.com/api/courses/certificate/1/`;
-                if (Platform.OS === 'web') {
-                  (window as any).open(certUrl, '_blank');
-                } else {
-                  const Linking = require('react-native').Linking;
-                  Linking.openURL(certUrl);
-                }
-              }}
-            >
-              <Text style={styles.certBtnText}>🏆 GET CERTIFICATE</Text>
-            </TouchableOpacity>
+            </View>
+          )}
 
-          </View>
-        )}
+          {/* Notes Text Section */}
+          {accessed && showNotes && notesText ? (
+            <View style={styles.notesSection}>
+              <Text style={styles.notesSectionTitle}>// LESSON NOTES</Text>
+              <Text style={styles.notesContent}>{notesText}</Text>
+            </View>
+          ) : null}
 
-        {/* Notes Text Section */}
-        {accessed && showNotes && notesText ? (
-          <View style={styles.notesSection}>
-            <Text style={styles.notesSectionTitle}>// LESSON NOTES</Text>
-            <Text style={styles.notesContent}>{notesText}</Text>
-          </View>
-        ) : null}
+          <Text style={styles.footer}>
+            Developed by: 💞🙏 Engineer Joe 🇰🇪
+          </Text>
+        </Animated.View>
+      </ScrollView>
 
-        <Text style={styles.footer}>
-          Developed by: 💞🙏 Engineer Joe 🇰🇪
-        </Text>
-      </Animated.View>
-    </ScrollView>
-
-
-    <Modal
-      visible={pdfVisible}
-      animationType="slide"
-      onRequestClose={() => setPdfVisible(false)}
-    >
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: 16,
-          paddingTop: 40,
-          backgroundColor: COLORS.surface,
-          borderBottomWidth: 1,
-          borderBottomColor: COLORS.border,
-        }}>
-          <Text style={{
-            color: COLORS.amber,
-            fontFamily: 'monospace',
-            fontWeight: '900',
-            fontSize: 14,
-          }}>📄 LESSON NOTES</Text>
-          <TouchableOpacity onPress={() => setPdfVisible(false)}>
+      {/* PDF Viewer Modal */}
+      <Modal
+        visible={pdfVisible}
+        animationType="slide"
+        onRequestClose={() => setPdfVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 16,
+            paddingTop: 40,
+            backgroundColor: COLORS.surface,
+            borderBottomWidth: 1,
+            borderBottomColor: COLORS.border,
+          }}>
             <Text style={{
-              color: COLORS.red,
+              color: COLORS.amber,
               fontFamily: 'monospace',
               fontWeight: '900',
-              fontSize: 13,
-            }}>✕ CLOSE</Text>
-          </TouchableOpacity>
+              fontSize: 14,
+            }}>📄 LESSON NOTES</Text>
+            <TouchableOpacity onPress={() => setPdfVisible(false)}>
+              <Text style={{
+                color: COLORS.red,
+                fontFamily: 'monospace',
+                fontWeight: '900',
+                fontSize: 13,
+              }}>✕ CLOSE</Text>
+            </TouchableOpacity>
+          </View>
+          {pdfUrl ? (
+            <WebView
+              source={{ uri: pdfUrl }}
+              style={{ flex: 1, backgroundColor: '#fff' }}
+              startInLoadingState
+              renderLoading={() => (
+                <ActivityIndicator
+                  color={COLORS.green}
+                  size="large"
+                  style={{ marginTop: 40 }}
+                />
+              )}
+            />
+          ) : null}
         </View>
-        {pdfUrl ? (
-          <WebView
-            source={{ uri: pdfUrl }}
-            style={{ flex: 1, backgroundColor: '#fff' }}
-            startInLoadingState
-            renderLoading={() => (
-              <ActivityIndicator
-                color={COLORS.green}
-                size="large"
-                style={{ marginTop: 40 }}
-              />
-            )}
-          />
-        ) : null}
-      </View>
-    </Modal>
+      </Modal>
+    </>
   );
 }
 
