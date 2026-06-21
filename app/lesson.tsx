@@ -7,6 +7,8 @@ import {
 import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import {
   isVideoRefSaved,
   downloadVideo,
@@ -48,6 +50,7 @@ export default function Lesson() {
   const [playing, setPlaying] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
   const [hasNotes, setHasNotes] = useState(false);
   const [notesText, setNotesText] = useState('');
   const [hasPdf, setHasPdf] = useState(false);
@@ -79,6 +82,13 @@ export default function Lesson() {
     } else {
       await AsyncStorage.setItem('scibase_user', data);
     }
+  };
+
+  const getNotesUrl = async () => {
+    const userData = await getUserData();
+    const user = userData ? JSON.parse(userData) : null;
+    const username = user ? user.username : '';
+    return `https://scilearnbackend.onrender.com/api/courses/notes/${lessonId}/?username=${encodeURIComponent(username)}`;
   };
 
   const checkIfDownloaded = async () => {
@@ -203,18 +213,49 @@ export default function Lesson() {
     );
   };
 
-  const downloadPdfNotes = async () => {
-    const userData = await getUserData();
-    const user = userData ? JSON.parse(userData) : null;
-    const username = user ? user.username : '';
-    const notesUrl = `https://scilearnbackend.onrender.com/api/courses/notes/${lessonId}/?username=${encodeURIComponent(username)}`;
-
+  // VIEW button — opens PDF inline inside the app
+  const viewPdfNotes = async () => {
+    const url = await getNotesUrl();
     if (Platform.OS === 'web') {
-      (window as any).open(notesUrl, '_blank');
+      (window as any).open(url, '_blank');
     } else {
-      setPdfUrl(notesUrl);
+      setPdfUrl(url);
       setPdfVisible(true);
     }
+  };
+
+  // DOWNLOAD button — saves PDF to device immediately
+  const downloadPdfToDevice = async () => {
+    const url = await getNotesUrl();
+
+    if (Platform.OS === 'web') {
+      (window as any).open(url, '_blank');
+      return;
+    }
+
+    setPdfDownloading(true);
+    try {
+      const fileName = `${(title as string).replace(/[^a-z0-9]/gi, '_')}_notes.pdf`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+
+      const downloadResult = await FileSystem.downloadAsync(url, fileUri);
+
+      if (downloadResult.status === 200) {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Save or Share PDF Notes',
+          });
+        } else {
+          Alert.alert('✅ Downloaded!', `Saved to: ${downloadResult.uri}`);
+        }
+      } else {
+        Alert.alert('❌ Error', 'Could not download PDF. The file may be missing on the server.');
+      }
+    } catch (e: any) {
+      Alert.alert('❌ Error', 'Download failed: ' + e.message);
+    }
+    setPdfDownloading(false);
   };
 
   const renderVideo = () => {
@@ -352,27 +393,40 @@ export default function Lesson() {
           {accessed && (
             <View style={styles.actionButtons}>
 
-              {/* Notes Button — text notes */}
-              {notesText ? (
+              {/* Notes Button — text notes OR pdf inline view */}
+              {(notesText || hasPdf) ? (
                 <TouchableOpacity
                   style={styles.notesToggleBtn}
-                  onPress={() => setShowNotes(!showNotes)}
+                  onPress={() => {
+                    if (hasPdf) {
+                      viewPdfNotes();
+                    } else {
+                      setShowNotes(!showNotes);
+                    }
+                  }}
                 >
                   <Text style={styles.notesToggleBtnText}>
-                    {showNotes ? '📖 HIDE NOTES' : '📖 VIEW NOTES'}
+                    {hasPdf
+                      ? '📖 VIEW NOTES'
+                      : (showNotes ? '📖 HIDE NOTES' : '📖 VIEW NOTES')}
                   </Text>
                 </TouchableOpacity>
               ) : null}
 
-              {/* PDF Notes Button */}
+              {/* PDF Download Button */}
               {hasPdf ? (
                 <TouchableOpacity
                   style={styles.pdfBtn}
-                  onPress={downloadPdfNotes}
+                  onPress={downloadPdfToDevice}
+                  disabled={pdfDownloading}
                 >
-                  <Text style={styles.pdfBtnText}>
-                    📄 DOWNLOAD PDF NOTES
-                  </Text>
+                  {pdfDownloading ? (
+                    <ActivityIndicator color={COLORS.amber} size="small" />
+                  ) : (
+                    <Text style={styles.pdfBtnText}>
+                      📄 DOWNLOAD PDF NOTES
+                    </Text>
+                  )}
                 </TouchableOpacity>
               ) : null}
 
@@ -415,8 +469,8 @@ export default function Lesson() {
             </View>
           )}
 
-          {/* Notes Text Section */}
-          {accessed && showNotes && notesText ? (
+          {/* Notes Text Section — only for plain text notes (no PDF) */}
+          {accessed && showNotes && notesText && !hasPdf ? (
             <View style={styles.notesSection}>
               <Text style={styles.notesSectionTitle}>// LESSON NOTES</Text>
               <Text style={styles.notesContent}>{notesText}</Text>
@@ -429,7 +483,7 @@ export default function Lesson() {
         </Animated.View>
       </ScrollView>
 
-      {/* PDF Viewer Modal */}
+      {/* PDF Viewer Modal — for VIEW NOTES */}
       <Modal
         visible={pdfVisible}
         animationType="slide"

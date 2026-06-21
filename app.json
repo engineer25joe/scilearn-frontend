@@ -7,34 +7,34 @@
     "icon": "./assets/images/icon.png",
     "scheme": "scilearn",
     "userInterfaceStyle": "automatic",
-    
     "android": {
-     "adaptiveIcon": {
-       "foregroundImage": "./assets/images/icon.png",
-       "backgroundColor": "#006600"
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#006600"
       },
-     "package": "com.engineer25joe.scilearn",
-     "permissions": [
-       "RECEIVE_BOOT_COMPLETED",
-       "VIBRATE",
-       "INTERNET",
-       "ACCESS_NETWORK_STATE"
-      ],
+      "package": "com.engineer25joe.scilearn",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "plugins": [
-     [
-       "expo-notifications",
-       {
-         "icon": "./assets/images/react-logo.png",
-         "color": "#006600",
-         "sounds": []
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/react-logo.png",
+          "color": "#006600",
+          "sounds": []
         }
       ],
       "expo-router",
       "expo-font",
       "expo-image",
       "expo-web-browser",
-      "react-native-video"
+      "react-native-video",
+      "expo-sharing"
     ],
     "permissions": [
       "READ_EXTERNAL_STORAGE",
