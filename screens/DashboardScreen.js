@@ -2,15 +2,17 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Platform, ActivityIndicator,
-  Animated, TextInput
+  Animated, Image
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
-import Avatar from '../components/Avatar';
+import FloatingAIButton from '../components/FloatingAIButton';
+
+const CATEGORY_FALLBACK_COLORS = ['#00cc44', '#7b3fe4', '#bb0000', '#ffb800'];
 
 function AnimatedCard({ children, style, delay = 0 }) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
+  const translateY = useRef(new Animated.Value(16)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -30,48 +32,15 @@ function AnimatedCard({ children, style, delay = 0 }) {
   );
 }
 
-function GridButton({ icon, label, onPress, color, colors }) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  return (
-    <Animated.View style={{ transform: [{ scale }], width: '47%' }}>
-      <TouchableOpacity
-        style={{
-          borderWidth: 1,
-          borderColor: colors.border,
-          padding: 20,
-          alignItems: 'center',
-          backgroundColor: colors.surface,
-          borderTopWidth: 3,
-          borderTopColor: color || colors.green,
-        }}
-        onPress={onPress}
-        onPressIn={() => Animated.spring(scale, {
-          toValue: 0.95, useNativeDriver: true, speed: 50
-        }).start()}
-        onPressOut={() => Animated.spring(scale, {
-          toValue: 1, useNativeDriver: true, speed: 50
-        }).start()}
-        activeOpacity={1}
-      >
-        <Text style={{ fontSize: 28, marginBottom: 10 }}>{icon}</Text>
-        <Text style={{
-          color: colors.text, fontSize: 11,
-          letterSpacing: 2, fontFamily: 'monospace',
-        }}>{label}</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
 export default function DashboardScreen({ navigation }) {
   const { colors } = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
-  const [trendingCourses, setTrendingCourses] = useState([]);
+  const [streak, setStreak] = useState(null);
   const [lastWatched, setLastWatched] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [trendingCourses, setTrendingCourses] = useState([]);
 
   const getUserData = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
@@ -111,13 +80,14 @@ export default function DashboardScreen({ navigation }) {
     return 0;
   };
 
-  const fetchTrendingCourses = async () => {
+  const fetchStreak = async (username) => {
     try {
       const res = await fetch(
-        'https://scilearnbackend.onrender.com/api/courses/'
+        'https://scilearnbackend.onrender.com/api/users/streak/',
+        { headers: { 'X-Username': username } }
       );
       const data = await res.json();
-      if (res.ok) setTrendingCourses((data.courses || []).slice(0, 4));
+      if (res.ok) setStreak(data);
     } catch {}
   };
 
@@ -131,6 +101,26 @@ export default function DashboardScreen({ navigation }) {
       if (res.ok && data.has_last_watched) {
         setLastWatched(data);
       }
+    } catch {}
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch(
+        'https://scilearnbackend.onrender.com/api/courses/categories/'
+      );
+      const data = await res.json();
+      if (res.ok) setCategories(data.categories || []);
+    } catch {}
+  };
+
+  const fetchTrendingCourses = async () => {
+    try {
+      const res = await fetch(
+        'https://scilearnbackend.onrender.com/api/courses/'
+      );
+      const data = await res.json();
+      if (res.ok) setTrendingCourses((data.courses || []).slice(0, 6));
     } catch {}
   };
 
@@ -153,6 +143,7 @@ export default function DashboardScreen({ navigation }) {
       }
 
       setUnreadCount(unread);
+      fetchStreak(parsed.username);
       fetchLastWatched(parsed.username);
     }
     setLoading(false);
@@ -160,17 +151,9 @@ export default function DashboardScreen({ navigation }) {
 
   useEffect(() => {
     loadUser();
+    fetchCategories();
     fetchTrendingCourses();
   }, []);
-
-  const logout = async () => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem('scibase_user');
-    } else {
-      await AsyncStorage.removeItem('scibase_user');
-    }
-    navigation.replace('Auth');
-  };
 
   const resumeLesson = () => {
     if (!lastWatched) return;
@@ -181,6 +164,10 @@ export default function DashboardScreen({ navigation }) {
       tokenCost: lastWatched.token_cost,
     });
   };
+
+  const streakDays = streak ? streak.current_streak : 0;
+  const streakDotsCount = 7;
+  const filledDots = Math.min(streakDays, streakDotsCount);
 
   if (loading) {
     return (
@@ -194,309 +181,284 @@ export default function DashboardScreen({ navigation }) {
   }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.bg }]}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
 
-      {/* Flag Banner */}
-      <View style={styles.flagBanner}>
-        <View style={[styles.flagStripe, { backgroundColor: colors.black }]} />
-        <View style={[styles.flagStripe, { backgroundColor: colors.red }]} />
-        <View style={[styles.flagStripe, { backgroundColor: colors.green }]} />
-      </View>
+        {/* Header */}
+        <AnimatedCard>
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => navigation.openDrawer && navigation.openDrawer()}
+            >
+              <Text style={styles.iconBtnText}>☰</Text>
+            </TouchableOpacity>
 
-      {/* Header */}
-      <AnimatedCard>
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.headerLeft}>
-            <Text style={[styles.tag, { color: colors.textDim }]}>
-              // DASHBOARD
-            </Text>
-            <View style={styles.welcomeRow}>
-              <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-                <Avatar
-                  uri={user?.avatar_url}
-                  username={user?.username}
-                  size={48}
-                  fontSize={20}
-                />
-              </TouchableOpacity>
-              <View>
-                <Text style={[styles.welcome, { color: colors.textDim }]}>
-                  HABARI,
-                </Text>
-                <Text style={[styles.username, { color: colors.green }]}>
-                  {user?.username?.toUpperCase() || 'ENGINEER'} 👋
-                </Text>
-              </View>
+            <View style={styles.headerCenter}>
+              <Text style={[styles.welcomeText, { color: colors.text }]}>
+                Welcome to <Text style={{ color: colors.green, fontWeight: '900' }}>SCI LEARN</Text> 👋
+              </Text>
+              <Text style={[styles.helloText, { color: colors.white }]}>
+                Hello, {user?.first_name || user?.username || 'Engineer'}
+              </Text>
             </View>
-          </View>
 
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={[styles.bellBtn, {
-                borderColor: colors.border,
-                backgroundColor: colors.surface,
-              }]}
-              onPress={() => navigation.navigate('Notifications')}
-            >
-              <Text style={styles.bellIcon}>🔔</Text>
-              {unreadCount > 0 && (
-                <View style={[styles.bellBadge, { backgroundColor: colors.red }]}>
-                  <Text style={styles.bellBadgeText}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={logout}
-              style={[styles.logoutBtn, { borderColor: colors.red }]}
-            >
-              <Text style={[styles.logoutText, { color: colors.red }]}>
-                ↪ OUT
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </AnimatedCard>
-
-      {/* Search Bar */}
-      <AnimatedCard delay={100}>
-        <View style={[styles.searchContainer, {
-          borderColor: colors.border,
-          backgroundColor: colors.surface,
-        }]}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search courses..."
-            placeholderTextColor={colors.textDim}
-            value={search}
-            onChangeText={setSearch}
-            onSubmitEditing={() => navigation.navigate('Courses')}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Text style={[styles.clearSearch, { color: colors.textDim }]}>
-                ✕
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </AnimatedCard>
-
-      {/* Token Balance Card */}
-      <AnimatedCard delay={200}>
-        <View style={[styles.tokenCard, {
-          borderColor: colors.green,
-          borderLeftColor: colors.green,
-          backgroundColor: colors.surfaceGreen,
-        }]}>
-          <View style={styles.tokenLeft}>
-            <Text style={[styles.tokenLabel, { color: colors.textDim }]}>
-              // TOKEN BALANCE
-            </Text>
-            <Text style={[styles.tokenBalance, { color: colors.green }]}>
-              {user?.tokens || 0}
-              <Text style={styles.tokenUnit}> 🪙</Text>
-            </Text>
-            <Text style={[styles.tokenHint, { color: colors.textDim }]}>
-              1 token = 1 KES = 1 minute
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.topupBtn, { backgroundColor: colors.green }]}
-            onPress={() => navigation.navigate('Tokens')}
-          >
-            <Text style={[styles.topupText, { color: colors.white }]}>
-              TOP UP
-            </Text>
-            <Text style={styles.topupIcon}>💳</Text>
-          </TouchableOpacity>
-        </View>
-      </AnimatedCard>
-
-      {/* Resume Learning Card */}
-      <AnimatedCard delay={250}>
-        {lastWatched ? (
-          <View style={styles.resumeSection}>
-            <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
-              // RESUME LEARNING
-            </Text>
-            <TouchableOpacity
-              style={[styles.resumeCard, {
-                borderColor: colors.green,
-                borderLeftColor: colors.green,
-                backgroundColor: colors.surfaceGreen,
-              }]}
-              onPress={resumeLesson}
-            >
-              <View style={styles.resumeLeft}>
-                <Text style={styles.resumePlayIcon}>▶️</Text>
-              </View>
-              <View style={styles.resumeInfo}>
-                <Text style={[styles.resumeCourse, { color: colors.textDim }]}
-                  numberOfLines={1}>
-                  📚 {lastWatched.course_title}
-                </Text>
-                <Text style={[styles.resumeLesson, { color: colors.white }]}
-                  numberOfLines={1}>
-                  {lastWatched.lesson_title}
-                </Text>
-                <Text style={[styles.resumeAction, { color: colors.green }]}>
-                  Tap to continue →
-                </Text>
-              </View>
-              <View style={[styles.resumeBtn, { backgroundColor: colors.green }]}>
-                <Text style={[styles.resumeBtnText, { color: colors.white }]}>
-                  RESUME
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.resumeSection}>
-            <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
-              // START LEARNING
-            </Text>
-            <TouchableOpacity
-              style={[styles.resumeCard, {
-                borderColor: colors.blue,
-                borderLeftColor: colors.blue,
-                backgroundColor: colors.surfaceBlue,
-              }]}
-              onPress={() => navigation.navigate('Courses')}
-            >
-              <Text style={styles.resumePlayIcon}>📚</Text>
-              <View style={styles.resumeInfo}>
-                <Text style={[styles.resumeLesson, { color: colors.white }]}>
-                  You haven't started yet!
-                </Text>
-                <Text style={[styles.resumeAction, { color: colors.blue }]}>
-                  Browse courses and start learning →
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
-      </AnimatedCard>
-
-      {/* Quick Actions */}
-      <AnimatedCard delay={300}>
-        <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
-          // QUICK ACCESS
-        </Text>
-        <View style={styles.grid}>
-          <GridButton icon="📚" label="COURSES"
-            onPress={() => navigation.navigate('Courses')}
-            color={colors.green} colors={colors} />
-          <GridButton icon="🪙" label="TOKENS"
-            onPress={() => navigation.navigate('Tokens')}
-            color={colors.amber} colors={colors} />
-          <GridButton icon="👤" label="PROFILE"
-            onPress={() => navigation.navigate('Profile')}
-            color={colors.blue} colors={colors} />
-          <GridButton icon="🤖" label="Q&A AI"
-            onPress={() => navigation.navigate('QA')}
-            color={colors.blue} colors={colors} />
-          <GridButton icon="🔥" label="STREAK"
-            onPress={() => navigation.navigate('Streak')}
-            color={colors.red} colors={colors} />
-          <GridButton icon="🎁" label="REFERRAL"
-            onPress={() => navigation.navigate('Streak')}
-            color={colors.amber} colors={colors} />
-          <GridButton icon="🔔" label="ALERTS"
-            onPress={() => navigation.navigate('Notifications')}
-            color={colors.green} colors={colors} />
-          <GridButton icon="🎨" label="THEME"
-            onPress={() => navigation.navigate('Theme')}
-            color={colors.blue} colors={colors} />
-        </View>
-      </AnimatedCard>
-
-      {/* Trending Courses */}
-      <AnimatedCard delay={400}>
-        <View style={styles.trendingHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.textDim }]}>
-            // TRENDING COURSES 🔥
-          </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
-            <Text style={[styles.seeAll, { color: colors.green }]}>
-              SEE ALL →
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.trendingScroll}
-        >
-          {trendingCourses.length > 0 ? (
-            trendingCourses.map((course, i) => {
-              const cardColors = [colors.green, colors.blue, colors.red, colors.amber];
-              const cardColor = cardColors[i % cardColors.length];
-              return (
-                <TouchableOpacity
-                  key={course.id}
-                  style={[styles.trendingCard, {
-                    borderColor: colors.border,
-                    backgroundColor: colors.surface,
-                    borderTopColor: cardColor,
-                  }]}
-                  onPress={() => navigation.navigate('Courses')}
-                >
-                  <Text style={styles.trendingEmoji}>📘</Text>
-                  <Text style={[styles.trendingTitle, { color: colors.text }]}
-                    numberOfLines={2}>
-                    {course.title}
-                  </Text>
-                  <Text style={[styles.trendingAction, { color: cardColor }]}>
-                    START →
-                  </Text>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            [
-              { title: 'Python Basics', emoji: '🐍', color: colors.green },
-              { title: 'Django Backend', emoji: '⚡', color: colors.blue },
-              { title: 'React Native', emoji: '📱', color: colors.red },
-              { title: 'Data Science', emoji: '📊', color: colors.amber },
-            ].map((course, i) => (
+            <View style={styles.headerRight}>
               <TouchableOpacity
-                key={i}
-                style={[styles.trendingCard, {
-                  borderColor: colors.border,
-                  backgroundColor: colors.surface,
-                  borderTopColor: course.color,
-                }]}
+                style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => navigation.navigate('Courses')}
               >
-                <Text style={styles.trendingEmoji}>{course.emoji}</Text>
-                <Text style={[styles.trendingTitle, { color: colors.text }]}>
-                  {course.title}
+                <Text style={styles.iconBtnText}>🔍</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => navigation.navigate('Notifications')}
+              >
+                <Text style={styles.iconBtnText}>🔔</Text>
+                {unreadCount > 0 && (
+                  <View style={[styles.bellBadge, { backgroundColor: colors.green }]}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </AnimatedCard>
+
+        {/* Streak Card */}
+        <AnimatedCard delay={100}>
+          <View style={[styles.streakCard, {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+          }]}>
+            <View style={styles.streakTop}>
+              <View style={[styles.streakIconRing, { borderColor: colors.green }]}>
+                <Text style={styles.streakFireIcon}>🔥</Text>
+              </View>
+              <View style={styles.streakInfo}>
+                <Text style={[styles.streakTitle, { color: colors.white }]}>
+                  Keep it up! 🔥
                 </Text>
-                <Text style={[styles.trendingAction, { color: course.color }]}>
-                  START →
+                <Text style={[styles.streakSubtitle, { color: colors.textDim }]}>
+                  You're on a <Text style={{ color: colors.green, fontWeight: '700' }}>{streakDays} day</Text> learning streak
                 </Text>
+              </View>
+              <View style={styles.streakCountBox}>
+                <Text style={[styles.streakCount, { color: colors.green }]}>{streakDays}</Text>
+                <Text style={[styles.streakCountLabel, { color: colors.textDim }]}>Day Streak</Text>
+              </View>
+            </View>
+
+            <View style={styles.streakDotsRow}>
+              {Array.from({ length: streakDotsCount }).map((_, i) => {
+                const isFilled = i < filledDots;
+                return (
+                  <React.Fragment key={i}>
+                    <View style={[
+                      styles.streakDot,
+                      {
+                        backgroundColor: isFilled ? colors.green : colors.bg2,
+                        borderColor: isFilled ? colors.green : colors.border,
+                      }
+                    ]}>
+                      {isFilled && <Text style={styles.streakDotCheck}>✓</Text>}
+                    </View>
+                    {i < streakDotsCount - 1 && (
+                      <View style={[
+                        styles.streakLine,
+                        { backgroundColor: isFilled ? colors.green : colors.border }
+                      ]} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          </View>
+        </AnimatedCard>
+
+        {/* Resume Learning */}
+        {lastWatched && (
+          <AnimatedCard delay={200}>
+            <TouchableOpacity
+              style={[styles.resumeCard, {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              }]}
+              onPress={resumeLesson}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.resumeThumb, { backgroundColor: colors.bg2 }]}>
+                <View style={[styles.playCircle, { backgroundColor: 'rgba(0,0,0,0.5)', borderColor: colors.green }]}>
+                  <Text style={styles.playIcon}>▶️</Text>
+                </View>
+              </View>
+              <View style={styles.resumeInfo}>
+                <Text style={[styles.resumeLabel, { color: colors.green }]}>
+                  Resume Learning
+                </Text>
+                <Text style={[styles.resumeCourseTitle, { color: colors.white }]} numberOfLines={1}>
+                  {lastWatched.course_title}
+                </Text>
+                <Text style={[styles.resumeLessonTitle, { color: colors.textDim }]} numberOfLines={1}>
+                  {lastWatched.lesson_title}
+                </Text>
+                <View style={styles.progressBarTrack}>
+                  <View style={[
+                    styles.progressBarFill,
+                    {
+                      backgroundColor: colors.green,
+                      width: `${lastWatched.progress_percent || 0}%`,
+                    }
+                  ]} />
+                </View>
+                <Text style={[styles.progressLabel, { color: colors.green }]}>
+                  {lastWatched.progress_percent || 0}% Completed
+                </Text>
+              </View>
+              <View style={[styles.continueBtn, { borderColor: colors.green }]}>
+                <Text style={[styles.continueBtnText, { color: colors.green }]}>
+                  ▷ Continue
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </AnimatedCard>
+        )}
+
+        {/* Courses (Categories) */}
+        <AnimatedCard delay={300}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.white }]}>Courses</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
+              <Text style={[styles.viewAll, { color: colors.green }]}>View all</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoryScroll}
+          >
+            {categories.length > 0 ? (
+              categories.map((cat, i) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[styles.categoryCard, {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  }]}
+                  onPress={() => navigation.navigate('Courses', { categoryId: cat.id })}
+                >
+                  <View style={[styles.categoryIconBox, { backgroundColor: cat.color + '22', borderColor: cat.color }]}>
+                    <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                  </View>
+                  <Text style={[styles.categoryName, { color: colors.white }]}>{cat.name}</Text>
+                  <Text style={[styles.categoryDesc, { color: colors.textDim }]} numberOfLines={1}>
+                    {cat.description}
+                  </Text>
+                  <Text style={[styles.categoryCount, { color: cat.color }]}>
+                    {cat.course_count} Courses
+                  </Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={[styles.categoryCard, {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                width: 280,
+              }]}>
+                <Text style={[styles.categoryDesc, { color: colors.textDim }]}>
+                  No categories yet — add some in the admin panel
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={[styles.viewAllCoursesBtn, { borderColor: colors.green }]}
+            onPress={() => navigation.navigate('Courses')}
+          >
+            <Text style={[styles.viewAllCoursesText, { color: colors.green }]}>
+              View all courses →
+            </Text>
+          </TouchableOpacity>
+        </AnimatedCard>
+
+        {/* Trending Courses */}
+        <AnimatedCard delay={400}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.white }]}>Trending Courses 🔥</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
+              <Text style={[styles.viewAll, { color: colors.green }]}>View all</Text>
+            </TouchableOpacity>
+          </View>
+
+          {trendingCourses.length > 0 ? (
+            trendingCourses.map((course, i) => (
+              <TouchableOpacity
+                key={course.id}
+                style={[styles.trendingRow, {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                }]}
+                onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+              >
+                <View style={[styles.trendingThumb, {
+                  backgroundColor: (CATEGORY_FALLBACK_COLORS[i % 4]) + '22',
+                }]}>
+                  <Text style={styles.trendingThumbIcon}>
+                    {course.category_icon || '📘'}
+                  </Text>
+                </View>
+                <View style={styles.trendingInfo}>
+                  {course.is_bestseller && (
+                    <View style={[styles.bestsellerBadge, { borderColor: colors.green }]}>
+                      <Text style={[styles.bestsellerText, { color: colors.green }]}>
+                        Bestseller
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={[styles.trendingTitle, { color: colors.white }]} numberOfLines={1}>
+                    {course.title}
+                  </Text>
+                  <Text style={[styles.trendingDesc, { color: colors.textDim }]} numberOfLines={1}>
+                    {course.description}
+                  </Text>
+                  <Text style={[styles.trendingRating, { color: colors.amber }]}>
+                    ⭐ {course.rating} ({course.learners_count} learners)
+                  </Text>
+                </View>
+                <View style={[styles.tokenBadge, { borderColor: colors.green }]}>
+                  <Text style={[styles.tokenBadgeText, { color: colors.green }]}>
+                    {course.token_cost} Tokens
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))
+          ) : (
+            <Text style={[styles.noResults, { color: colors.textDim }]}>
+              No courses yet
+            </Text>
           )}
-        </ScrollView>
-      </AnimatedCard>
+        </AnimatedCard>
 
-      <Text style={[styles.footer, { color: colors.textDim }]}>
-        Developed by: 💞🙏 Engineer Joe 🇰🇪
-      </Text>
-    </ScrollView>
+        <Text style={[styles.footer, { color: colors.textDim }]}>
+          Developed by: 💞🙏 Engineer Joe 🇰🇪
+        </Text>
+      </ScrollView>
+
+      <FloatingAIButton onPress={() => navigation.navigate('QA')} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   container: { flex: 1 },
   loadingContainer: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
@@ -504,142 +466,151 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: 'monospace', marginTop: 16, letterSpacing: 3,
   },
-  flagBanner: { flexDirection: 'row', height: 6 },
-  flagStripe: { flex: 1 },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'flex-start', padding: 24, paddingTop: 32,
-    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 16,
+    gap: 10,
   },
-  headerLeft: { flex: 1 },
+  iconBtn: {
+    width: 44, height: 44, borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
+  },
+  iconBtnText: { fontSize: 18 },
+  headerCenter: { flex: 1 },
+  welcomeText: {
+    fontSize: 13, fontFamily: 'System',
+  },
+  helloText: {
+    fontSize: 20, fontWeight: '800', marginTop: 2,
+  },
   headerRight: {
-    flexDirection: 'row', gap: 8, alignItems: 'center',
+    flexDirection: 'row', gap: 8,
   },
-  tag: {
-    fontSize: 10, letterSpacing: 3,
-    fontFamily: 'monospace', marginBottom: 8,
-  },
-  welcomeRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-  },
-  welcome: { fontSize: 12, fontFamily: 'monospace' },
-  username: {
-    fontSize: 22, fontWeight: '900', fontFamily: 'monospace',
-  },
-  bellBtn: {
-    position: 'relative', borderWidth: 1, padding: 10,
-  },
-  bellIcon: { fontSize: 20 },
   bellBadge: {
-    position: 'absolute', top: -6, right: -6,
+    position: 'absolute', top: -4, right: -4,
     minWidth: 18, height: 18, borderRadius: 9,
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 4,
   },
   bellBadgeText: {
-    color: '#fff', fontSize: 9,
-    fontFamily: 'monospace', fontWeight: '900',
+    color: '#000', fontSize: 9, fontWeight: '900',
   },
-  logoutBtn: {
-    borderWidth: 1, padding: 10, paddingHorizontal: 14,
+  streakCard: {
+    marginHorizontal: 16, marginBottom: 16,
+    borderWidth: 1, borderRadius: 16, padding: 18,
   },
-  logoutText: {
-    fontSize: 11, letterSpacing: 2, fontFamily: 'monospace',
+  streakTop: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
   },
-  searchContainer: {
+  streakIconRing: {
+    width: 56, height: 56, borderRadius: 28,
+    borderWidth: 2, alignItems: 'center', justifyContent: 'center',
+  },
+  streakFireIcon: { fontSize: 26 },
+  streakInfo: { flex: 1 },
+  streakTitle: { fontSize: 15, fontWeight: '700' },
+  streakSubtitle: { fontSize: 12, marginTop: 4 },
+  streakCountBox: { alignItems: 'center' },
+  streakCount: { fontSize: 28, fontWeight: '900' },
+  streakCountLabel: { fontSize: 9, marginTop: -2 },
+  streakDotsRow: {
     flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 20, marginTop: 16, marginBottom: 8,
-    borderWidth: 1, paddingHorizontal: 16,
+    justifyContent: 'space-between', marginTop: 18,
   },
-  searchIcon: { fontSize: 16, marginRight: 8 },
-  searchInput: {
-    flex: 1, fontFamily: 'monospace',
-    fontSize: 13, paddingVertical: 12,
+  streakDot: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 2, alignItems: 'center', justifyContent: 'center',
   },
-  clearSearch: { fontSize: 16, padding: 4 },
-  tokenCard: {
-    marginHorizontal: 20, marginVertical: 16,
-    borderWidth: 1, borderLeftWidth: 4,
-    padding: 20, flexDirection: 'row',
-    justifyContent: 'space-between', alignItems: 'center',
-  },
-  tokenLeft: { flex: 1 },
-  tokenLabel: {
-    fontSize: 10, letterSpacing: 3,
-    fontFamily: 'monospace', marginBottom: 8,
-  },
-  tokenBalance: {
-    fontSize: 44, fontWeight: '900', fontFamily: 'monospace',
-  },
-  tokenUnit: { fontSize: 24 },
-  tokenHint: {
-    fontSize: 10, fontFamily: 'monospace', marginTop: 4,
-  },
-  topupBtn: {
-    padding: 16, alignItems: 'center', minWidth: 80,
-  },
-  topupText: {
-    fontWeight: '900', fontFamily: 'monospace',
-    fontSize: 11, letterSpacing: 1,
-  },
-  topupIcon: { fontSize: 20, marginTop: 4 },
-  resumeSection: { marginBottom: 8 },
-  sectionTitle: {
-    fontSize: 10, letterSpacing: 3,
-    fontFamily: 'monospace', paddingHorizontal: 20, marginBottom: 12,
-  },
+  streakDotCheck: { color: '#000', fontSize: 11, fontWeight: '900' },
+  streakLine: { flex: 1, height: 2, marginHorizontal: 2 },
   resumeCard: {
-    marginHorizontal: 20, marginBottom: 16,
-    borderWidth: 1, borderLeftWidth: 4,
-    padding: 16, flexDirection: 'row',
-    alignItems: 'center', gap: 12,
+    flexDirection: 'row', marginHorizontal: 16, marginBottom: 20,
+    borderWidth: 1, borderRadius: 16, padding: 12, gap: 12,
+    alignItems: 'center',
   },
-  resumeLeft: { alignItems: 'center' },
-  resumePlayIcon: { fontSize: 32 },
+  resumeThumb: {
+    width: 88, height: 72, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  playCircle: {
+    width: 36, height: 36, borderRadius: 18,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+  },
+  playIcon: { fontSize: 14 },
   resumeInfo: { flex: 1 },
-  resumeCourse: {
-    fontFamily: 'monospace', fontSize: 10,
-    letterSpacing: 1, marginBottom: 4,
+  resumeLabel: { fontSize: 11, fontWeight: '700' },
+  resumeCourseTitle: { fontSize: 15, fontWeight: '800', marginTop: 2 },
+  resumeLessonTitle: { fontSize: 12, marginTop: 2, marginBottom: 6 },
+  progressBarTrack: {
+    height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
   },
-  resumeLesson: {
-    fontFamily: 'monospace', fontWeight: '900',
-    fontSize: 14, marginBottom: 4,
-  },
-  resumeAction: {
-    fontFamily: 'monospace', fontSize: 11,
-  },
-  resumeBtn: {
+  progressBarFill: { height: 4, borderRadius: 2 },
+  progressLabel: { fontSize: 10, marginTop: 4, fontWeight: '700' },
+  continueBtn: {
+    borderWidth: 1, borderRadius: 10,
     paddingVertical: 8, paddingHorizontal: 12,
   },
-  resumeBtnText: {
-    fontFamily: 'monospace', fontWeight: '900',
-    fontSize: 11, letterSpacing: 1,
-  },
-  grid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    paddingHorizontal: 16, gap: 8, marginBottom: 24,
-  },
-  trendingHeader: {
+  continueBtnText: { fontSize: 12, fontWeight: '700' },
+  sectionHeaderRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingRight: 20, marginBottom: 4,
+    alignItems: 'center', paddingHorizontal: 16, marginBottom: 12,
   },
-  seeAll: { fontFamily: 'monospace', fontSize: 11, letterSpacing: 1 },
-  trendingScroll: { paddingLeft: 20, marginBottom: 24 },
-  trendingCard: {
-    borderWidth: 1, padding: 16, marginRight: 12,
-    width: 150, borderTopWidth: 3,
+  sectionTitle: { fontSize: 18, fontWeight: '800' },
+  viewAll: { fontSize: 13, fontWeight: '700' },
+  categoryScroll: { paddingLeft: 16, marginBottom: 14 },
+  categoryCard: {
+    width: 160, borderWidth: 1, borderRadius: 16,
+    padding: 14, marginRight: 12,
   },
-  trendingEmoji: { fontSize: 28, marginBottom: 8 },
-  trendingTitle: {
-    fontFamily: 'monospace', fontSize: 12,
-    fontWeight: '700', marginBottom: 8,
+  categoryIconBox: {
+    width: 40, height: 40, borderRadius: 12,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 10,
   },
-  trendingAction: {
-    fontFamily: 'monospace', fontSize: 11,
-    fontWeight: '700', letterSpacing: 1,
+  categoryIcon: { fontSize: 18 },
+  categoryName: { fontSize: 14, fontWeight: '800', marginBottom: 4 },
+  categoryDesc: { fontSize: 11, marginBottom: 10 },
+  categoryCount: { fontSize: 12, fontWeight: '700' },
+  viewAllCoursesBtn: {
+    marginHorizontal: 16, borderWidth: 1, borderRadius: 12,
+    padding: 14, alignItems: 'center', marginBottom: 24,
+  },
+  viewAllCoursesText: { fontSize: 13, fontWeight: '700' },
+  trendingRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 16, marginBottom: 12,
+    borderWidth: 1, borderRadius: 14, padding: 12,
+  },
+  trendingThumb: {
+    width: 52, height: 52, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  trendingThumbIcon: { fontSize: 22 },
+  trendingInfo: { flex: 1 },
+  bestsellerBadge: {
+    alignSelf: 'flex-start', borderWidth: 1, borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2, marginBottom: 4,
+  },
+  bestsellerText: { fontSize: 9, fontWeight: '700' },
+  trendingTitle: { fontSize: 13, fontWeight: '700' },
+  trendingDesc: { fontSize: 11, marginTop: 2 },
+  trendingRating: { fontSize: 11, marginTop: 4, fontWeight: '600' },
+  tokenBadge: {
+    borderWidth: 1, borderRadius: 10,
+    paddingVertical: 6, paddingHorizontal: 10,
+  },
+  tokenBadgeText: { fontSize: 11, fontWeight: '700' },
+  noResults: {
+    textAlign: 'center', fontSize: 13, marginTop: 20,
   },
   footer: {
     textAlign: 'center', fontSize: 11,
-    margin: 32, fontFamily: 'monospace',
+    marginVertical: 24, fontFamily: 'monospace',
   },
 });

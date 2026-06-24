@@ -3,10 +3,9 @@ import { useColorScheme, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DARK_COLORS = {
-  // Kenyan Flag
-  green: '#006600',
-  greenLight: '#008000',
-  greenDim: '#004400',
+  green: '#00cc44',
+  greenLight: '#00ff55',
+  greenDim: '#004422',
   red: '#bb0000',
   black: '#0a0a0a',
   white: '#ffffff',
@@ -14,24 +13,20 @@ const DARK_COLORS = {
   blueLight: '#1a35b5',
   amber: '#ffd700',
 
-  // Backgrounds
-  bg: '#0a0a0a',
-  bg2: '#111111',
-  surface: '#1a1a1a',
-  surfaceGreen: '#0a1a0a',
+  bg: '#080c14',
+  bg2: '#0d1320',
+  surface: '#11182a',
+  surfaceGreen: '#0a1f14',
   surfaceBlue: '#0a0f1f',
 
-  // Borders
-  border: '#1f3f1f',
+  border: '#1c2536',
   borderBlue: '#1a2a5a',
   borderRed: '#3f1a1a',
 
-  // Text
   text: '#f0f0f0',
-  textDim: '#888888',
+  textDim: '#7c8aa3',
 
-  // Primary
-  primary: '#006600',
+  primary: '#00cc44',
   accent: '#bb0000',
   accentBlue: '#0f268c',
 };
