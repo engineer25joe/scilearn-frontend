@@ -465,7 +465,6 @@ export default function DashboardScreen({ navigation }) {
           </View>
         );
       }
-    }
   )
 
 const styles = StyleSheet.create({
