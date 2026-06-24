@@ -4,6 +4,7 @@ import {
   TouchableOpacity, Platform, ActivityIndicator,
   Animated, Image
 } from 'react-native';
+import SideDrawer from '../components/SideDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import FloatingAIButton from '../components/FloatingAIButton';
@@ -41,6 +42,7 @@ export default function DashboardScreen({ navigation }) {
   const [lastWatched, setLastWatched] = useState(null);
   const [categories, setCategories] = useState([]);
   const [trendingCourses, setTrendingCourses] = useState([]);
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   const getUserData = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
@@ -193,7 +195,7 @@ export default function DashboardScreen({ navigation }) {
           <View style={styles.header}>
             <TouchableOpacity
               style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => navigation.openDrawer && navigation.openDrawer()}
+              onPress={() => setDrawerVisible(true)}
             >
               <Text style={styles.iconBtnText}>☰</Text>
             </TouchableOpacity>
@@ -453,7 +455,17 @@ export default function DashboardScreen({ navigation }) {
       </ScrollView>
 
       <FloatingAIButton onPress={() => navigation.navigate('QA')} />
-    </View>
+      
+            <SideDrawer
+              visible={drawerVisible}
+              onClose={() => setDrawerVisible(false)}
+              navigation={navigation}
+              user={user}
+            />
+          </View>
+        );
+      }
+
   );
 }
 
