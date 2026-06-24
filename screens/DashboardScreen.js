@@ -465,9 +465,8 @@ export default function DashboardScreen({ navigation }) {
           </View>
         );
       }
-
-  );
-}
+    }
+  )
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
