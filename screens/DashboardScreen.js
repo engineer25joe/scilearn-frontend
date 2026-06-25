@@ -4,6 +4,7 @@ import {
   TouchableOpacity, Platform, ActivityIndicator,
   Animated, Image
 } from 'react-native';
+import AppScreenContainer from '../components/AppScreenContainer';
 import SideDrawer from '../components/SideDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
@@ -181,290 +182,287 @@ export default function DashboardScreen({ navigation }) {
       </View>
     );
   }
+return (
+    <AppScreenContainer navigation={navigation} user={user} style={{ backgroundColor: colors.bg }}>
+      {({ openDrawer }) => (
+        <View style={[styles.root, { backgroundColor: colors.bg }]}>
+          <ScrollView
+            style={styles.container}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
 
-  return (
-    <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <ScrollView
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
+            {/* Header */}
+            <AnimatedCard>
+              <View style={styles.header}>
+                <TouchableOpacity
+                  style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={openDrawer}
+                >
+                  <Text style={styles.iconBtnText}>☰</Text>
+                </TouchableOpacity>
 
-        {/* Header */}
-        <AnimatedCard>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => setDrawerVisible(true)}
-            >
-              <Text style={styles.iconBtnText}>☰</Text>
-            </TouchableOpacity>
-
-            <View style={styles.headerCenter}>
-              <Text style={[styles.welcomeText, { color: colors.text }]}>
-                Welcome to <Text style={{ color: colors.green, fontWeight: '900' }}>SCI LEARN</Text> 👋
-              </Text>
-              <Text style={[styles.helloText, { color: colors.white }]}>
-                Hello, {user?.first_name || user?.username || 'Engineer'}
-              </Text>
-            </View>
-
-            <View style={styles.headerRight}>
-              <TouchableOpacity
-                style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                onPress={() => navigation.navigate('Courses')}
-              >
-                <Text style={styles.iconBtnText}>🔍</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                onPress={() => navigation.navigate('Notifications')}
-              >
-                <Text style={styles.iconBtnText}>🔔</Text>
-                {unreadCount > 0 && (
-                  <View style={[styles.bellBadge, { backgroundColor: colors.green }]}>
-                    <Text style={styles.bellBadgeText}>
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </AnimatedCard>
-
-        {/* Streak Card */}
-        <AnimatedCard delay={100}>
-          <View style={[styles.streakCard, {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          }]}>
-            <View style={styles.streakTop}>
-              <View style={[styles.streakIconRing, { borderColor: colors.green }]}>
-                <Text style={styles.streakFireIcon}>🔥</Text>
-              </View>
-              <View style={styles.streakInfo}>
-                <Text style={[styles.streakTitle, { color: colors.white }]}>
-                  Keep it up! 🔥
-                </Text>
-                <Text style={[styles.streakSubtitle, { color: colors.textDim }]}>
-                  You're on a <Text style={{ color: colors.green, fontWeight: '700' }}>{streakDays} day</Text> learning streak
-                </Text>
-              </View>
-              <View style={styles.streakCountBox}>
-                <Text style={[styles.streakCount, { color: colors.green }]}>{streakDays}</Text>
-                <Text style={[styles.streakCountLabel, { color: colors.textDim }]}>Day Streak</Text>
-              </View>
-            </View>
-
-            <View style={styles.streakDotsRow}>
-              {Array.from({ length: streakDotsCount }).map((_, i) => {
-                const isFilled = i < filledDots;
-                return (
-                  <React.Fragment key={i}>
-                    <View style={[
-                      styles.streakDot,
-                      {
-                        backgroundColor: isFilled ? colors.green : colors.bg2,
-                        borderColor: isFilled ? colors.green : colors.border,
-                      }
-                    ]}>
-                      {isFilled && <Text style={styles.streakDotCheck}>✓</Text>}
-                    </View>
-                    {i < streakDotsCount - 1 && (
-                      <View style={[
-                        styles.streakLine,
-                        { backgroundColor: isFilled ? colors.green : colors.border }
-                      ]} />
+                <View style={styles.headerCenter}>
+                  <Text style={[styles.welcomeText, { color: colors.text }]}>
+                    Welcome to <Text style={{ color: colors.green, fontWeight: '900' }}>SCI LEARN</Text> 👋
+                  </Text>
+                  <Text style={[styles.helloText, { color: colors.white }]}>
+                    Hello, {user?.first_name || user?.username || 'Engineer'}
+                  </Text>
+                </View>
+    
+                <View style={styles.headerRight}>
+                  <TouchableOpacity
+                    style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    onPress={() => navigation.navigate('Courses')}
+                  >
+                    <Text style={styles.iconBtnText}>🔍</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    onPress={() => navigation.navigate('Notifications')}
+                  >
+                    <Text style={styles.iconBtnText}>🔔</Text>
+                    {unreadCount > 0 && (
+                      <View style={[styles.bellBadge, { backgroundColor: colors.green }]}>
+                        <Text style={styles.bellBadgeText}>
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </Text>
+                      </View>
                     )}
-                  </React.Fragment>
-                );
-              })}
-            </View>
-          </View>
-        </AnimatedCard>
-
-        {/* Resume Learning */}
-        {lastWatched && (
-          <AnimatedCard delay={200}>
-            <TouchableOpacity
-              style={[styles.resumeCard, {
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </AnimatedCard>
+    
+            {/* Streak Card */}
+            <AnimatedCard delay={100}>
+              <View style={[styles.streakCard, {
                 backgroundColor: colors.surface,
                 borderColor: colors.border,
-              }]}
-              onPress={resumeLesson}
-              activeOpacity={0.85}
-            >
-              <View style={[styles.resumeThumb, { backgroundColor: colors.bg2 }]}>
-                <View style={[styles.playCircle, { backgroundColor: 'rgba(0,0,0,0.5)', borderColor: colors.green }]}>
-                  <Text style={styles.playIcon}>▶️</Text>
+              }]}>
+                <View style={styles.streakTop}>
+                  <View style={[styles.streakIconRing, { borderColor: colors.green }]}>
+                    <Text style={styles.streakFireIcon}>🔥</Text>
+                  </View>
+                  <View style={styles.streakInfo}>
+                    <Text style={[styles.streakTitle, { color: colors.white }]}>
+                      Keep it up! 🔥
+                    </Text>
+                    <Text style={[styles.streakSubtitle, { color: colors.textDim }]}>
+                      You're on a <Text style={{ color: colors.green, fontWeight: '700' }}>{streakDays} day</Text> learning streak
+                    </Text>
+                  </View>
+                  <View style={styles.streakCountBox}>
+                    <Text style={[styles.streakCount, { color: colors.green }]}>{streakDays}</Text>
+                    <Text style={[styles.streakCountLabel, { color: colors.textDim }]}>Day Streak</Text>
+                  </View>
+                </View>
+    
+                <View style={styles.streakDotsRow}>
+                  {Array.from({ length: streakDotsCount }).map((_, i) => {
+                    const isFilled = i < filledDots;
+                    return (
+                      <React.Fragment key={i}>
+                        <View style={[
+                          styles.streakDot,
+                          {
+                            backgroundColor: isFilled ? colors.green : colors.bg2,
+                            borderColor: isFilled ? colors.green : colors.border,
+                          }
+                        ]}>
+                          {isFilled && <Text style={styles.streakDotCheck}>✓</Text>}
+                        </View>
+                        {i < streakDotsCount - 1 && (
+                          <View style={[
+                            styles.streakLine,
+                            { backgroundColor: isFilled ? colors.green : colors.border }
+                          ]} />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </View>
               </View>
-              <View style={styles.resumeInfo}>
-                <Text style={[styles.resumeLabel, { color: colors.green }]}>
-                  Resume Learning
-                </Text>
-                <Text style={[styles.resumeCourseTitle, { color: colors.white }]} numberOfLines={1}>
-                  {lastWatched.course_title}
-                </Text>
-                <Text style={[styles.resumeLessonTitle, { color: colors.textDim }]} numberOfLines={1}>
-                  {lastWatched.lesson_title}
-                </Text>
-                <View style={styles.progressBarTrack}>
-                  <View style={[
-                    styles.progressBarFill,
-                    {
-                      backgroundColor: colors.green,
-                      width: `${lastWatched.progress_percent || 0}%`,
-                    }
-                  ]} />
-                </View>
-                <Text style={[styles.progressLabel, { color: colors.green }]}>
-                  {lastWatched.progress_percent || 0}% Completed
-                </Text>
-              </View>
-              <View style={[styles.continueBtn, { borderColor: colors.green }]}>
-                <Text style={[styles.continueBtnText, { color: colors.green }]}>
-                  ▷ Continue
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </AnimatedCard>
-        )}
-
-        {/* Courses (Categories) */}
-        <AnimatedCard delay={300}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.white }]}>Courses</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
-              <Text style={[styles.viewAll, { color: colors.green }]}>View all</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.categoryScroll}
-          >
-            {categories.length > 0 ? (
-              categories.map((cat, i) => (
+            </AnimatedCard>
+    
+            {/* Resume Learning */}
+            {lastWatched && (
+              <AnimatedCard delay={200}>
                 <TouchableOpacity
-                  key={cat.id}
-                  style={[styles.categoryCard, {
+                  style={[styles.resumeCard, {
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
                   }]}
-                  onPress={() => navigation.navigate('Courses', { categoryId: cat.id })}
+                  onPress={resumeLesson}
+                  activeOpacity={0.85}
                 >
-                  <View style={[styles.categoryIconBox, { backgroundColor: cat.color + '22', borderColor: cat.color }]}>
-                    <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                  <View style={[styles.resumeThumb, { backgroundColor: colors.bg2 }]}>
+                    <View style={[styles.playCircle, { backgroundColor: 'rgba(0,0,0,0.5)', borderColor: colors.green }]}>
+                      <Text style={styles.playIcon}>▶️</Text>
+                    </View>
                   </View>
-                  <Text style={[styles.categoryName, { color: colors.white }]}>{cat.name}</Text>
-                  <Text style={[styles.categoryDesc, { color: colors.textDim }]} numberOfLines={1}>
-                    {cat.description}
-                  </Text>
-                  <Text style={[styles.categoryCount, { color: cat.color }]}>
-                    {cat.course_count} Courses
-                  </Text>
+                  <View style={styles.resumeInfo}>
+                    <Text style={[styles.resumeLabel, { color: colors.green }]}>
+                      Resume Learning
+                    </Text>
+                    <Text style={[styles.resumeCourseTitle, { color: colors.white }]} numberOfLines={1}>
+                      {lastWatched.course_title}
+                    </Text>
+                    <Text style={[styles.resumeLessonTitle, { color: colors.textDim }]} numberOfLines={1}>
+                      {lastWatched.lesson_title}
+                    </Text>
+                    <View style={styles.progressBarTrack}>
+                      <View style={[
+                        styles.progressBarFill,
+                        {
+                          backgroundColor: colors.green,
+                          width: `${lastWatched.progress_percent || 0}%`,
+                        }
+                      ]} />
+                    </View>
+                    <Text style={[styles.progressLabel, { color: colors.green }]}>
+                      {lastWatched.progress_percent || 0}% Completed
+                    </Text>
+                  </View>
+                  <View style={[styles.continueBtn, { borderColor: colors.green }]}>
+                    <Text style={[styles.continueBtnText, { color: colors.green }]}>
+                      ▷ Continue
+                    </Text>
+                  </View>
                 </TouchableOpacity>
-              ))
-            ) : (
-              <View style={[styles.categoryCard, {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                width: 280,
-              }]}>
-                <Text style={[styles.categoryDesc, { color: colors.textDim }]}>
-                  No categories yet — add some in the admin panel
-                </Text>
-              </View>
+              </AnimatedCard>
             )}
-          </ScrollView>
-
-          <TouchableOpacity
-            style={[styles.viewAllCoursesBtn, { borderColor: colors.green }]}
-            onPress={() => navigation.navigate('Courses')}
-          >
-            <Text style={[styles.viewAllCoursesText, { color: colors.green }]}>
-              View all courses →
-            </Text>
-          </TouchableOpacity>
-        </AnimatedCard>
-
-        {/* Trending Courses */}
-        <AnimatedCard delay={400}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: colors.white }]}>Trending Courses 🔥</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
-              <Text style={[styles.viewAll, { color: colors.green }]}>View all</Text>
-            </TouchableOpacity>
-          </View>
-
-          {trendingCourses.length > 0 ? (
-            trendingCourses.map((course, i) => (
-              <TouchableOpacity
-                key={course.id}
-                style={[styles.trendingRow, {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                }]}
-                onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+    
+            {/* Courses (Categories) */}
+            <AnimatedCard delay={300}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[styles.sectionTitle, { color: colors.white }]}>Courses</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
+                  <Text style={[styles.viewAll, { color: colors.green }]}>View all</Text>
+                </TouchableOpacity>
+              </View>
+    
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoryScroll}
               >
-                <View style={[styles.trendingThumb, {
-                  backgroundColor: (CATEGORY_FALLBACK_COLORS[i % 4]) + '22',
-                }]}>
-                  <Text style={styles.trendingThumbIcon}>
-                    {course.category_icon || '📘'}
-                  </Text>
-                </View>
-                <View style={styles.trendingInfo}>
-                  {course.is_bestseller && (
-                    <View style={[styles.bestsellerBadge, { borderColor: colors.green }]}>
-                      <Text style={[styles.bestsellerText, { color: colors.green }]}>
-                        Bestseller
+                {categories.length > 0 ? (
+                  categories.map((cat, i) => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[styles.categoryCard, {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      }]}
+                      onPress={() => navigation.navigate('Courses', { categoryId: cat.id })}
+                    >
+                      <View style={[styles.categoryIconBox, { backgroundColor: cat.color + '22', borderColor: cat.color }]}>
+                        <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                      </View>
+                      <Text style={[styles.categoryName, { color: colors.white }]}>{cat.name}</Text>
+                      <Text style={[styles.categoryDesc, { color: colors.textDim }]} numberOfLines={1}>
+                        {cat.description}
+                      </Text>
+                      <Text style={[styles.categoryCount, { color: cat.color }]}>
+                        {cat.course_count} Courses
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={[styles.categoryCard, {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    width: 280,
+                  }]}>
+                    <Text style={[styles.categoryDesc, { color: colors.textDim }]}>
+                      No categories yet — add some in the admin panel
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+    
+              <TouchableOpacity
+                style={[styles.viewAllCoursesBtn, { borderColor: colors.green }]}
+                onPress={() => navigation.navigate('Courses')}
+              >
+                <Text style={[styles.viewAllCoursesText, { color: colors.green }]}>
+                  View all courses →
+                </Text>
+              </TouchableOpacity>
+            </AnimatedCard>
+    
+            {/* Trending Courses */}
+            <AnimatedCard delay={400}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[styles.sectionTitle, { color: colors.white }]}>Trending Courses 🔥</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
+                  <Text style={[styles.viewAll, { color: colors.green }]}>View all</Text>
+                </TouchableOpacity>
+              </View>
+    
+              {trendingCourses.length > 0 ? (
+                trendingCourses.map((course, i) => (
+                  <TouchableOpacity
+                    key={course.id}
+                    style={[styles.trendingRow, {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    }]}
+                    onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                  >
+                    <View style={[styles.trendingThumb, {
+                      backgroundColor: (CATEGORY_FALLBACK_COLORS[i % 4]) + '22',
+                    }]}>
+                      <Text style={styles.trendingThumbIcon}>
+                        {course.category_icon || '📘'}
                       </Text>
                     </View>
-                  )}
-                  <Text style={[styles.trendingTitle, { color: colors.white }]} numberOfLines={1}>
-                    {course.title}
-                  </Text>
-                  <Text style={[styles.trendingDesc, { color: colors.textDim }]} numberOfLines={1}>
-                    {course.description}
-                  </Text>
-                  <Text style={[styles.trendingRating, { color: colors.amber }]}>
-                    ⭐ {course.rating} ({course.learners_count} learners)
-                  </Text>
-                </View>
-                <View style={[styles.tokenBadge, { borderColor: colors.green }]}>
-                  <Text style={[styles.tokenBadgeText, { color: colors.green }]}>
-                    {course.token_cost} Tokens
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={[styles.noResults, { color: colors.textDim }]}>
-              No courses yet
+                    <View style={styles.trendingInfo}>
+                      {course.is_bestseller && (
+                        <View style={[styles.bestsellerBadge, { borderColor: colors.green }]}>
+                          <Text style={[styles.bestsellerText, { color: colors.green }]}>
+                            Bestseller
+                          </Text>
+                        </View>
+                      )}
+                      <Text style={[styles.trendingTitle, { color: colors.white }]} numberOfLines={1}>
+                        {course.title}
+                      </Text>
+                      <Text style={[styles.trendingDesc, { color: colors.textDim }]} numberOfLines={1}>
+                        {course.description}
+                      </Text>
+                      <Text style={[styles.trendingRating, { color: colors.amber }]}>
+                        ⭐ {course.rating} ({course.learners_count} learners)
+                      </Text>
+                    </View>
+                    <View style={[styles.tokenBadge, { borderColor: colors.green }]}>
+                      <Text style={[styles.tokenBadgeText, { color: colors.green }]}>
+                        {course.token_cost} Tokens
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text style={[styles.noResults, { color: colors.textDim }]}>
+                  No courses yet
+                </Text>
+              )}
+            </AnimatedCard>
+    
+            <Text style={[styles.footer, { color: colors.textDim }]}>
+              Developed by: 💞🙏 Engineer Joe 🇰🇪
             </Text>
-          )}
-        </AnimatedCard>
+          </ScrollView>
+    
+          <FloatingAIButton onPress={() => navigation.navigate('QA')} />
+                  </View>
+                )}
+              </AppScreenContainer>
+            );
+          }
 
-        <Text style={[styles.footer, { color: colors.textDim }]}>
-          Developed by: 💞🙏 Engineer Joe 🇰🇪
-        </Text>
-      </ScrollView>
-
-      <FloatingAIButton onPress={() => navigation.navigate('QA')} />
-      
-            <SideDrawer
-              visible={drawerVisible}
-              onClose={() => setDrawerVisible(false)}
-              navigation={navigation}
-              user={user}
-            />
-          </View>
-        );
-      }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
