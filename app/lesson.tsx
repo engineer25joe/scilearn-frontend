@@ -57,6 +57,9 @@ export default function Lesson() {
   const [showNotes, setShowNotes] = useState(false);
   const [pdfVisible, setPdfVisible] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [isLastLesson, setIsLastLesson] = useState(false);
+  const [nextLesson, setNextLesson] = useState<any>(null);
   const scale = useRef(new Animated.Value(1)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -97,6 +100,15 @@ export default function Lesson() {
     setIsDownloaded(saved);
   };
 
+  const applyAccessData = (data: any) => {
+    setHasNotes(data.has_notes || false);
+    setNotesText(data.notes_text || '');
+    setHasPdf(data.has_pdf || false);
+    setCourseId(data.course_id || null);
+    setIsLastLesson(!!data.is_last_lesson);
+    setNextLesson(data.next_lesson || null);
+  };
+
   const checkIfUnlocked = async () => {
     setChecking(true);
     try {
@@ -117,9 +129,7 @@ export default function Lesson() {
       if (res.ok && data.already_unlocked) {
         setAccessed(true);
         setPlaying(true);
-        setHasNotes(data.has_notes || false);
-        setNotesText(data.notes_text || '');
-        setHasPdf(data.has_pdf || false);
+        applyAccessData(data);
       }
     } catch {}
     setChecking(false);
@@ -149,9 +159,7 @@ export default function Lesson() {
       if (res.ok) {
         setAccessed(true);
         setPlaying(true);
-        setHasNotes(data.has_notes || false);
-        setNotesText(data.notes_text || '');
-        setHasPdf(data.has_pdf || false);
+        applyAccessData(data);
         user.tokens = data.tokens_remaining;
         await saveUserData(JSON.stringify(user));
       } else {
@@ -161,6 +169,19 @@ export default function Lesson() {
       Alert.alert('Error', 'Cannot connect to server');
     }
     setLoading(false);
+  };
+
+  const goToNextLesson = () => {
+    if (!nextLesson) return;
+    router.replace({
+      pathname: '/lesson',
+      params: {
+        lessonId: nextLesson.id,
+        title: nextLesson.title,
+        videoId: nextLesson.video_id,
+        tokenCost: nextLesson.token_cost,
+      },
+    });
   };
 
   const handleDownload = async () => {
@@ -213,7 +234,6 @@ export default function Lesson() {
     );
   };
 
-  // VIEW button — opens PDF inline inside the app
   const viewPdfNotes = async () => {
     const url = await getNotesUrl();
     if (Platform.OS === 'web') {
@@ -224,7 +244,6 @@ export default function Lesson() {
     }
   };
 
-  // DOWNLOAD button — saves PDF to device immediately
   const downloadPdfToDevice = async () => {
     const url = await getNotesUrl();
 
@@ -256,6 +275,17 @@ export default function Lesson() {
       Alert.alert('❌ Error', 'Download failed: ' + e.message);
     }
     setPdfDownloading(false);
+  };
+
+  const openCertificate = () => {
+    if (!courseId) return;
+    const certUrl = `https://scilearnbackend.onrender.com/api/courses/certificate/${courseId}/`;
+    if (Platform.OS === 'web') {
+      (window as any).open(certUrl, '_blank');
+    } else {
+      const Linking = require('react-native').Linking;
+      Linking.openURL(certUrl);
+    }
   };
 
   const renderVideo = () => {
@@ -450,21 +480,27 @@ export default function Lesson() {
                 </TouchableOpacity>
               )}
 
-              {/* Certificate Button */}
-              <TouchableOpacity
-                style={styles.certBtn}
-                onPress={() => {
-                  const certUrl = `https://scilearnbackend.onrender.com/api/courses/certificate/1/`;
-                  if (Platform.OS === 'web') {
-                    (window as any).open(certUrl, '_blank');
-                  } else {
-                    const Linking = require('react-native').Linking;
-                    Linking.openURL(certUrl);
-                  }
-                }}
-              >
-                <Text style={styles.certBtnText}>🏆 GET CERTIFICATE</Text>
-              </TouchableOpacity>
+              {/* Certificate Button — ONLY on the last lesson of the course */}
+              {isLastLesson ? (
+                <TouchableOpacity
+                  style={styles.certBtn}
+                  onPress={openCertificate}
+                >
+                  <Text style={styles.certBtnText}>🏆 GET CERTIFICATE</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {/* Next Lesson Button — when there is a next lesson */}
+              {nextLesson ? (
+                <TouchableOpacity
+                  style={styles.nextBtn}
+                  onPress={goToNextLesson}
+                >
+                  <Text style={styles.nextBtnText}>
+                    NEXT LESSON: {nextLesson.title} →
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
 
             </View>
           )}
@@ -694,6 +730,15 @@ const styles = StyleSheet.create({
   certBtnText: {
     color: COLORS.amber, fontFamily: 'monospace',
     fontWeight: '700', letterSpacing: 2, fontSize: 13,
+  },
+  nextBtn: {
+    backgroundColor: COLORS.green,
+    padding: 14, alignItems: 'center',
+    borderBottomWidth: 3, borderBottomColor: COLORS.greenLight,
+  },
+  nextBtnText: {
+    color: COLORS.white, fontFamily: 'monospace',
+    fontWeight: '900', letterSpacing: 1, fontSize: 12,
   },
   notesSection: {
     marginHorizontal: 16, marginBottom: 16,
