@@ -42,8 +42,10 @@ if (Platform.OS !== 'web') {
 }
 
 export default function Lesson() {
-  const { lessonId, title, videoId, tokenCost } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const { lessonId, title, videoId, tokenCost } = params;
   const router = useRouter();
+
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [accessed, setAccessed] = useState(false);
@@ -51,7 +53,6 @@ export default function Lesson() {
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [pdfDownloading, setPdfDownloading] = useState(false);
-  const [hasNotes, setHasNotes] = useState(false);
   const [notesText, setNotesText] = useState('');
   const [hasPdf, setHasPdf] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
@@ -60,9 +61,15 @@ export default function Lesson() {
   const [courseId, setCourseId] = useState<number | null>(null);
   const [isLastLesson, setIsLastLesson] = useState(false);
   const [nextLesson, setNextLesson] = useState<any>(null);
+  const [description, setDescription] = useState('');
+  const [learningPoints, setLearningPoints] = useState<string[]>([]);
+  const [level, setLevel] = useState('Beginner');
+  const [lessonsCount, setLessonsCount] = useState(1);
+  const [tokens, setTokens] = useState(0);
+  const [bookmarked, setBookmarked] = useState(false);
+
   const scale = useRef(new Animated.Value(1)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(contentOpacity, {
@@ -101,12 +108,15 @@ export default function Lesson() {
   };
 
   const applyAccessData = (data: any) => {
-    setHasNotes(data.has_notes || false);
     setNotesText(data.notes_text || '');
     setHasPdf(data.has_pdf || false);
     setCourseId(data.course_id || null);
     setIsLastLesson(!!data.is_last_lesson);
     setNextLesson(data.next_lesson || null);
+    setDescription(data.description || '');
+    setLearningPoints(data.learning_points || []);
+    setLevel(data.level || 'Beginner');
+    setLessonsCount(data.lessons_count || 1);
   };
 
   const checkIfUnlocked = async () => {
@@ -115,6 +125,7 @@ export default function Lesson() {
       const userData = await getUserData();
       if (!userData) { setChecking(false); return; }
       const user = JSON.parse(userData);
+      setTokens(user.tokens || 0);
       const res = await fetch(
         `https://scilearnbackend.onrender.com/api/courses/watch/${lessonId}/`,
         {
@@ -128,7 +139,7 @@ export default function Lesson() {
       const data = await res.json();
       if (res.ok && data.already_unlocked) {
         setAccessed(true);
-        setPlaying(true);
+        setPlaying(false);
         applyAccessData(data);
       }
     } catch {}
@@ -161,6 +172,7 @@ export default function Lesson() {
         setPlaying(true);
         applyAccessData(data);
         user.tokens = data.tokens_remaining;
+        setTokens(data.tokens_remaining);
         await saveUserData(JSON.stringify(user));
       } else {
         Alert.alert('Error', data.error || 'Cannot access lesson');
@@ -213,9 +225,6 @@ export default function Lesson() {
           text: 'SAVE',
           onPress: async () => {
             setDownloading(true);
-            Animated.timing(progressAnim, {
-              toValue: 1, duration: 2000, useNativeDriver: false,
-            }).start();
             const result = await downloadVideo(
               videoId as string,
               title as string,
@@ -328,102 +337,101 @@ export default function Lesson() {
 
   return (
     <>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: accessed ? 100 : 30 }}
+      >
 
-        {/* Flag Banner */}
-        <View style={styles.flagBanner}>
-          <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
-          <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
-          <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
+        {/* Top Bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
+            <Text style={styles.iconBtnText}>‹</Text>
+          </TouchableOpacity>
+
+          <View style={styles.topBarCenter}>
+            <Text style={styles.lessonTitle} numberOfLines={1}>{title}</Text>
+            <Text style={styles.courseSubtitle}>Course Lesson</Text>
+            <View style={styles.tokenChip}>
+              <Text style={styles.tokenChipText}>🪙 {tokenCost} TOKEN LESSON</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setBookmarked(!bookmarked)}
+          >
+            <Text style={styles.iconBtnText}>{bookmarked ? '🔖' : '🏷️'}</Text>
+          </TouchableOpacity>
         </View>
 
-        <Animated.View style={{ opacity: contentOpacity }}>
+        {/* Video Box */}
+        <View style={styles.videoBox}>
+          {accessed ? renderVideo() : (
+            <View style={styles.locked}>
+              <Text style={styles.lockIcon}>🔒</Text>
+              <Text style={styles.lockTitle}>LESSON LOCKED</Text>
+              <Text style={styles.lockText}>Unlock to start watching</Text>
+              <View style={styles.lockCostBox}>
+                <Text style={styles.lockCost}>{tokenCost} 🪙 TOKENS</Text>
+              </View>
+            </View>
+          )}
+        </View>
 
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <Text style={styles.backText}>← BACK</Text>
-            </TouchableOpacity>
-            <Text style={styles.tag}>// LESSON</Text>
-            <Text style={styles.title}>{title}</Text>
-            <View style={styles.costBadge}>
-              <Text style={styles.costBadgeText}>
-                🪙 {tokenCost} TOKEN LESSON
+        {/* Unlock Section */}
+        {!accessed && (
+          <View style={styles.unlockSection}>
+            <View style={styles.unlockInfo}>
+              <Text style={styles.unlockInfoIcon}>ℹ️</Text>
+              <Text style={styles.unlockInfoText}>
+                This lesson costs{' '}
+                <Text style={styles.unlockCostText}>{tokenCost} tokens</Text>.
+                Tokens are deducted once — rewatch for free anytime!
               </Text>
             </View>
+            <Animated.View style={{ transform: [{ scale }] }}>
+              <TouchableOpacity
+                style={styles.unlockBtn}
+                onPress={accessLesson}
+                onPressIn={() => Animated.spring(scale, {
+                  toValue: 0.96, useNativeDriver: true, speed: 50
+                }).start()}
+                onPressOut={() => Animated.spring(scale, {
+                  toValue: 1, useNativeDriver: true, speed: 50
+                }).start()}
+                disabled={loading}
+                activeOpacity={1}
+              >
+                {loading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <View style={styles.unlockBtnInner}>
+                    <Text style={styles.unlockBtnText}>🔓 UNLOCK LESSON</Text>
+                    <Text style={styles.unlockBtnCost}>{tokenCost} 🪙 tokens</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
           </View>
+        )}
 
-          {/* Video Box */}
-          <View style={styles.videoBox}>
-            {accessed ? renderVideo() : (
-              <View style={styles.locked}>
-                <Text style={styles.lockIcon}>🔒</Text>
-                <Text style={styles.lockTitle}>LESSON LOCKED</Text>
-                <Text style={styles.lockText}>Unlock to start watching</Text>
-                <View style={styles.lockCostBox}>
-                  <Text style={styles.lockCost}>{tokenCost} 🪙 TOKENS</Text>
-                </View>
-              </View>
-            )}
-          </View>
+        {accessed && (
+          <Animated.View style={{ opacity: contentOpacity }}>
 
-          {/* Unlock Section */}
-          {!accessed && (
-            <View style={styles.unlockSection}>
-              <View style={styles.unlockInfo}>
-                <Text style={styles.unlockInfoIcon}>ℹ️</Text>
-                <Text style={styles.unlockInfoText}>
-                  This lesson costs{' '}
-                  <Text style={styles.unlockCostText}>{tokenCost} tokens</Text>.
-                  Tokens are deducted once — rewatch for free anytime!
-                </Text>
-              </View>
-              <Animated.View style={{ transform: [{ scale }] }}>
-                <TouchableOpacity
-                  style={styles.unlockBtn}
-                  onPress={accessLesson}
-                  onPressIn={() => Animated.spring(scale, {
-                    toValue: 0.96, useNativeDriver: true, speed: 50
-                  }).start()}
-                  onPressOut={() => Animated.spring(scale, {
-                    toValue: 1, useNativeDriver: true, speed: 50
-                  }).start()}
-                  disabled={loading}
-                  activeOpacity={1}
-                >
-                  {loading ? (
-                    <ActivityIndicator color={COLORS.white} />
-                  ) : (
-                    <View style={styles.unlockBtnInner}>
-                      <Text style={styles.unlockBtnText}>🔓 UNLOCK LESSON</Text>
-                      <Text style={styles.unlockBtnCost}>
-                        {tokenCost} 🪙 tokens
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
-            </View>
-          )}
-
-          {/* Success Box */}
-          {accessed && (
+            {/* Success Box */}
             <View style={styles.successBox}>
-              <Text style={styles.successIcon}>✅</Text>
+              <View style={styles.successCheckBox}>
+                <Text style={styles.successCheckIcon}>✓</Text>
+              </View>
               <View>
                 <Text style={styles.successText}>LESSON UNLOCKED!</Text>
-                <Text style={styles.successSub}>
-                  Rewatch anytime for free
-                </Text>
+                <Text style={styles.successSub}>Rewatch anytime for free</Text>
               </View>
             </View>
-          )}
 
-          {/* Action Buttons — only when unlocked */}
-          {accessed && (
-            <View style={styles.actionButtons}>
-
-              {/* Notes Button — text notes OR pdf inline view */}
+            {/* View Notes / Download PDF row */}
+            <View style={styles.notesRow}>
               {(notesText || hasPdf) ? (
                 <TouchableOpacity
                   style={styles.notesToggleBtn}
@@ -435,15 +443,10 @@ export default function Lesson() {
                     }
                   }}
                 >
-                  <Text style={styles.notesToggleBtnText}>
-                    {hasPdf
-                      ? '📖 VIEW NOTES'
-                      : (showNotes ? '📖 HIDE NOTES' : '📖 VIEW NOTES')}
-                  </Text>
+                  <Text style={styles.notesToggleBtnText}>📖 VIEW NOTES →</Text>
                 </TouchableOpacity>
-              ) : null}
+              ) : <View style={{ flex: 1 }} />}
 
-              {/* PDF Download Button */}
               {hasPdf ? (
                 <TouchableOpacity
                   style={styles.pdfBtn}
@@ -453,102 +456,139 @@ export default function Lesson() {
                   {pdfDownloading ? (
                     <ActivityIndicator color={COLORS.amber} size="small" />
                   ) : (
-                    <Text style={styles.pdfBtnText}>
-                      📄 DOWNLOAD PDF NOTES
-                    </Text>
+                    <Text style={styles.pdfBtnText}>📄 DOWNLOAD PDF →</Text>
                   )}
                 </TouchableOpacity>
               ) : null}
+            </View>
 
-              {/* Download Video Button — mobile only */}
-              {Platform.OS !== 'web' && (
-                <TouchableOpacity
-                  style={[
-                    styles.downloadBtn,
-                    isDownloaded && styles.downloadBtnActive,
-                  ]}
-                  onPress={handleDownload}
-                  disabled={downloading}
-                >
-                  {downloading ? (
-                    <ActivityIndicator color={COLORS.white} size="small" />
-                  ) : (
-                    <Text style={styles.downloadBtnText}>
-                      {isDownloaded ? '🗑️ REMOVE OFFLINE COPY' : '📥 SAVE FOR OFFLINE'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              )}
+            {/* Stats grid: Duration / Token / Lesson count / Level */}
+            <View style={styles.statsGrid}>
+              <View style={[styles.statBox, { borderColor: COLORS.blue }]}>
+                <Text style={[styles.statIcon, { color: COLORS.blue }]}>🕐</Text>
+                <Text style={styles.statValue}>{tokenCost}</Text>
+                <Text style={[styles.statLabel, { color: COLORS.blue }]}>MINUTE{Number(tokenCost) === 1 ? '' : 'S'}</Text>
+                <Text style={styles.statSub}>Duration</Text>
+              </View>
+              <View style={[styles.statBox, { borderColor: COLORS.amber }]}>
+                <Text style={[styles.statIcon, { color: COLORS.amber }]}>🪙</Text>
+                <Text style={styles.statValue}>{tokenCost}</Text>
+                <Text style={[styles.statLabel, { color: COLORS.amber }]}>TOKEN{Number(tokenCost) === 1 ? '' : 'S'}</Text>
+                <Text style={styles.statSub}>Required</Text>
+              </View>
+              <View style={[styles.statBox, { borderColor: COLORS.green }]}>
+                <Text style={[styles.statIcon, { color: COLORS.green }]}>▶️</Text>
+                <Text style={styles.statValue}>{lessonsCount}</Text>
+                <Text style={[styles.statLabel, { color: COLORS.green }]}>LESSON{lessonsCount === 1 ? '' : 'S'}</Text>
+                <Text style={styles.statSub}>In this course</Text>
+              </View>
+              <View style={[styles.statBox, { borderColor: '#7b3fe4' }]}>
+                <Text style={[styles.statIcon, { color: '#7b3fe4' }]}>📊</Text>
+                <Text style={[styles.statValueSmall, { color: '#7b3fe4' }]}>{level.toUpperCase()}</Text>
+                <Text style={styles.statSub}>Level</Text>
+              </View>
+            </View>
 
-              {/* Certificate Button — ONLY on the last lesson of the course */}
-              {isLastLesson ? (
-                <TouchableOpacity
-                  style={styles.certBtn}
-                  onPress={openCertificate}
-                >
-                  <Text style={styles.certBtnText}>🏆 GET CERTIFICATE</Text>
-                </TouchableOpacity>
-              ) : null}
+            {/* About this lesson */}
+            {description ? (
+              <View style={styles.aboutBox}>
+                <Text style={styles.aboutTitle}>About this lesson</Text>
+                <Text style={styles.aboutText}>{description}</Text>
+              </View>
+            ) : null}
 
-              {/* Next Lesson Button — when there is a next lesson */}
-              {nextLesson ? (
-                <TouchableOpacity
-                  style={styles.nextBtn}
-                  onPress={goToNextLesson}
-                >
-                  <Text style={styles.nextBtnText}>
-                    NEXT LESSON: {nextLesson.title} →
+            {/* What you'll learn */}
+            {learningPoints.length > 0 ? (
+              <View style={styles.learnBox}>
+                <Text style={styles.learnTitle}>What you will learn</Text>
+                {learningPoints.map((point, i) => (
+                  <View key={i} style={styles.learnRow}>
+                    <Text style={styles.learnCheck}>✓</Text>
+                    <Text style={styles.learnText}>{point}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {/* Download Video Button — mobile only */}
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity
+                style={[
+                  styles.downloadBtn,
+                  isDownloaded && styles.downloadBtnActive,
+                ]}
+                onPress={handleDownload}
+                disabled={downloading}
+              >
+                {downloading ? (
+                  <ActivityIndicator color={COLORS.white} size="small" />
+                ) : (
+                  <Text style={styles.downloadBtnText}>
+                    {isDownloaded ? '🗑️ REMOVE OFFLINE COPY' : '📥 SAVE FOR OFFLINE'}
                   </Text>
-                </TouchableOpacity>
-              ) : null}
+                )}
+              </TouchableOpacity>
+            )}
 
-            </View>
-          )}
+            {/* Certificate Button — ONLY on last lesson */}
+            {isLastLesson ? (
+              <TouchableOpacity style={styles.certBtn} onPress={openCertificate}>
+                <Text style={styles.certBtnIcon}>🏆</Text>
+                <Text style={styles.certBtnText}>GET CERTIFICATE</Text>
+                <Text style={styles.certBtnArrow}>→</Text>
+              </TouchableOpacity>
+            ) : null}
 
-          {/* Notes Text Section — only for plain text notes (no PDF) */}
-          {accessed && showNotes && notesText && !hasPdf ? (
-            <View style={styles.notesSection}>
-              <Text style={styles.notesSectionTitle}>// LESSON NOTES</Text>
-              <Text style={styles.notesContent}>{notesText}</Text>
-            </View>
-          ) : null}
+            {/* Notes Text Section — plain text notes only (no PDF) */}
+            {showNotes && notesText && !hasPdf ? (
+              <View style={styles.notesSection}>
+                <Text style={styles.notesSectionTitle}>// LESSON NOTES</Text>
+                <Text style={styles.notesContent}>{notesText}</Text>
+              </View>
+            ) : null}
 
-          <Text style={styles.footer}>
-            Developed by: 💞🙏 Engineer Joe 🇰🇪
-          </Text>
-        </Animated.View>
+          </Animated.View>
+        )}
+
+        <Text style={styles.footer}>
+          Developed by: 💞🙏 Engineer Joe 🇰🇪
+        </Text>
       </ScrollView>
 
-      {/* PDF Viewer Modal — for VIEW NOTES */}
+      {/* Bottom Balance Bar */}
+      {accessed && (
+        <View style={styles.bottomBar}>
+          <View>
+            <Text style={styles.bottomLabel}>Your Balance</Text>
+            <Text style={styles.bottomValue}>🪙 {tokens} Tokens</Text>
+          </View>
+          {isLastLesson ? (
+            <TouchableOpacity style={styles.bottomBtn} onPress={openCertificate}>
+              <Text style={styles.bottomBtnText}>Get Certificate 🏆</Text>
+            </TouchableOpacity>
+          ) : nextLesson ? (
+            <TouchableOpacity style={styles.bottomBtn} onPress={goToNextLesson}>
+              <Text style={styles.bottomBtnText}>Next Lesson →</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={[styles.bottomBtn, { opacity: 0.6 }]} disabled>
+              <Text style={styles.bottomBtnText}>You're all caught up!</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* PDF Viewer Modal */}
       <Modal
         visible={pdfVisible}
         animationType="slide"
         onRequestClose={() => setPdfVisible(false)}
       >
         <View style={{ flex: 1, backgroundColor: '#000' }}>
-          <View style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: 16,
-            paddingTop: 40,
-            backgroundColor: COLORS.surface,
-            borderBottomWidth: 1,
-            borderBottomColor: COLORS.border,
-          }}>
-            <Text style={{
-              color: COLORS.amber,
-              fontFamily: 'monospace',
-              fontWeight: '900',
-              fontSize: 14,
-            }}>📄 LESSON NOTES</Text>
+          <View style={styles.pdfModalHeader}>
+            <Text style={styles.pdfModalTitle}>📄 LESSON NOTES</Text>
             <TouchableOpacity onPress={() => setPdfVisible(false)}>
-              <Text style={{
-                color: COLORS.red,
-                fontFamily: 'monospace',
-                fontWeight: '900',
-                fontSize: 13,
-              }}>✕ CLOSE</Text>
+              <Text style={styles.pdfModalClose}>✕ CLOSE</Text>
             </TouchableOpacity>
           </View>
           {pdfUrl ? (
@@ -557,11 +597,7 @@ export default function Lesson() {
               style={{ flex: 1, backgroundColor: '#fff' }}
               startInLoadingState
               renderLoading={() => (
-                <ActivityIndicator
-                  color={COLORS.green}
-                  size="large"
-                  style={{ marginTop: 40 }}
-                />
+                <ActivityIndicator color={COLORS.green} size="large" style={{ marginTop: 40 }} />
               )}
             />
           ) : null}
@@ -581,180 +617,137 @@ const styles = StyleSheet.create({
     color: COLORS.green, fontFamily: 'monospace',
     marginTop: 16, letterSpacing: 3, fontSize: 11,
   },
-  flagBanner: { flexDirection: 'row', height: 6 },
-  flagStripe: { flex: 1 },
-  header: {
-    padding: 24, paddingTop: 32,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surfaceGreen,
+  topBar: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingHorizontal: 16, paddingTop: 50, paddingBottom: 16, gap: 10,
   },
-  backBtn: {
-    alignSelf: 'flex-start',
+  iconBtn: {
+    width: 40, height: 40, borderRadius: 10,
     borderWidth: 1, borderColor: COLORS.border,
-    paddingVertical: 6, paddingHorizontal: 14,
-    marginBottom: 16,
-  },
-  backText: {
-    color: COLORS.green, fontFamily: 'monospace',
-    fontSize: 12, letterSpacing: 2,
-  },
-  tag: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 6,
-  },
-  title: {
-    color: COLORS.white, fontSize: 20,
-    fontWeight: '900', fontFamily: 'monospace', marginBottom: 12,
-  },
-  costBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.amber,
-    paddingHorizontal: 12, paddingVertical: 4,
-  },
-  costBadgeText: {
-    color: COLORS.black, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 11, letterSpacing: 1,
-  },
-  videoBox: {
-    margin: 16, borderWidth: 1,
-    borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
-    minHeight: 220, justifyContent: 'center',
-    overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center',
   },
-  locked: {
-    height: 220, alignItems: 'center',
-    justifyContent: 'center', padding: 20,
+  iconBtnText: { color: COLORS.white, fontSize: 18 },
+  topBarCenter: { flex: 1 },
+  lessonTitle: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
+  courseSubtitle: { color: COLORS.textDim, fontSize: 12, marginTop: 2, marginBottom: 8 },
+  tokenChip: {
+    alignSelf: 'flex-start', backgroundColor: COLORS.amber,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6,
   },
-  lockIcon: { fontSize: 48, marginBottom: 12 },
-  lockTitle: {
-    color: COLORS.white, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 16, marginBottom: 8,
+  tokenChipText: { color: '#000', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  videoBox: {
+    marginHorizontal: 16, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.surface, minHeight: 200,
+    justifyContent: 'center', overflow: 'hidden', borderRadius: 14, marginBottom: 16,
   },
-  lockText: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 12, marginBottom: 16,
-  },
-  lockCostBox: {
-    borderWidth: 1, borderColor: COLORS.amber,
-    paddingHorizontal: 20, paddingVertical: 8,
-  },
-  lockCost: {
-    color: COLORS.amber, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 18,
-  },
-  webPlayer: { width: '100%', height: 220 },
+  locked: { height: 200, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  lockIcon: { fontSize: 44, marginBottom: 12 },
+  lockTitle: { color: COLORS.white, fontFamily: 'monospace', fontWeight: '900', fontSize: 15, marginBottom: 8 },
+  lockText: { color: COLORS.textDim, fontFamily: 'monospace', fontSize: 12, marginBottom: 14 },
+  lockCostBox: { borderWidth: 1, borderColor: COLORS.amber, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 8 },
+  lockCost: { color: COLORS.amber, fontFamily: 'monospace', fontWeight: '900', fontSize: 16 },
+  webPlayer: { width: '100%', height: 200 },
   unlockSection: { marginHorizontal: 16, marginBottom: 16 },
   unlockInfo: {
-    flexDirection: 'row', gap: 12,
-    borderWidth: 1, borderColor: COLORS.blue,
-    backgroundColor: COLORS.surfaceBlue,
-    padding: 14, marginBottom: 16,
+    flexDirection: 'row', gap: 12, borderWidth: 1, borderColor: COLORS.blue,
+    backgroundColor: COLORS.surfaceBlue, padding: 14, marginBottom: 16, borderRadius: 10,
   },
   unlockInfoIcon: { fontSize: 16 },
-  unlockInfoText: {
-    flex: 1, color: COLORS.textDim,
-    fontFamily: 'monospace', fontSize: 12, lineHeight: 20,
-  },
+  unlockInfoText: { flex: 1, color: COLORS.textDim, fontFamily: 'monospace', fontSize: 12, lineHeight: 20 },
   unlockCostText: { color: COLORS.amber, fontWeight: '700' },
   unlockBtn: {
-    backgroundColor: COLORS.green,
-    padding: 18, alignItems: 'center',
-    borderBottomWidth: 4, borderBottomColor: COLORS.greenLight,
+    backgroundColor: COLORS.green, padding: 18, alignItems: 'center',
+    borderRadius: 10, borderBottomWidth: 4, borderBottomColor: COLORS.greenLight,
   },
   unlockBtnInner: { alignItems: 'center' },
-  unlockBtnText: {
-    color: COLORS.white, fontWeight: '900',
-    letterSpacing: 2, fontFamily: 'monospace', fontSize: 16,
-  },
-  unlockBtnCost: {
-    color: 'rgba(255,255,255,0.7)',
-    fontFamily: 'monospace', fontSize: 11, marginTop: 4,
-  },
+  unlockBtnText: { color: COLORS.white, fontWeight: '900', letterSpacing: 2, fontFamily: 'monospace', fontSize: 15 },
+  unlockBtnCost: { color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace', fontSize: 11, marginTop: 4 },
   successBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    marginHorizontal: 16, marginBottom: 8,
-    borderWidth: 1, borderColor: COLORS.green,
-    backgroundColor: COLORS.surfaceGreen,
-    padding: 16, borderLeftWidth: 4,
-    borderLeftColor: COLORS.green,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 16, marginBottom: 14, borderWidth: 1, borderColor: COLORS.green,
+    backgroundColor: COLORS.surfaceGreen, padding: 14, borderRadius: 10,
   },
-  successIcon: { fontSize: 28 },
-  successText: {
-    color: COLORS.green, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 14, letterSpacing: 1,
+  successCheckBox: {
+    width: 28, height: 28, borderRadius: 6, backgroundColor: COLORS.green,
+    alignItems: 'center', justifyContent: 'center',
   },
-  successSub: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 11, marginTop: 4,
-  },
-  actionButtons: {
-    marginHorizontal: 16, marginBottom: 16, gap: 10,
-  },
+  successCheckIcon: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  successText: { color: COLORS.green, fontFamily: 'monospace', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
+  successSub: { color: COLORS.textDim, fontFamily: 'monospace', fontSize: 11, marginTop: 2 },
+  notesRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 16 },
   notesToggleBtn: {
-    borderWidth: 1, borderColor: COLORS.blue,
-    padding: 14, alignItems: 'center',
-    backgroundColor: COLORS.surfaceBlue,
+    flex: 1, borderWidth: 1, borderColor: COLORS.blue, borderRadius: 10,
+    padding: 12, alignItems: 'center', backgroundColor: COLORS.surfaceBlue,
   },
-  notesToggleBtnText: {
-    color: COLORS.blue, fontFamily: 'monospace',
-    fontWeight: '700', letterSpacing: 2, fontSize: 13,
-  },
+  notesToggleBtnText: { color: COLORS.blue, fontFamily: 'monospace', fontWeight: '700', fontSize: 11, letterSpacing: 1 },
   pdfBtn: {
-    borderWidth: 1, borderColor: COLORS.amber,
-    padding: 14, alignItems: 'center',
-    backgroundColor: 'rgba(255,215,0,0.05)',
+    flex: 1, borderWidth: 1, borderColor: COLORS.amber, borderRadius: 10,
+    padding: 12, alignItems: 'center', backgroundColor: 'rgba(255,215,0,0.06)',
   },
-  pdfBtnText: {
-    color: COLORS.amber, fontFamily: 'monospace',
-    fontWeight: '700', letterSpacing: 2, fontSize: 13,
-  },
-  downloadBtn: {
-    borderWidth: 1, borderColor: COLORS.blue,
-    padding: 14, alignItems: 'center',
-    backgroundColor: COLORS.surfaceBlue,
-  },
-  downloadBtnActive: {
-    borderColor: COLORS.red,
-    backgroundColor: 'rgba(187,0,0,0.05)',
-  },
-  downloadBtnText: {
-    color: COLORS.white, fontFamily: 'monospace',
-    fontWeight: '700', letterSpacing: 2, fontSize: 13,
-  },
-  certBtn: {
-    borderWidth: 1, borderColor: COLORS.amber,
-    padding: 14, alignItems: 'center',
-    backgroundColor: 'rgba(255,215,0,0.05)',
-  },
-  certBtnText: {
-    color: COLORS.amber, fontFamily: 'monospace',
-    fontWeight: '700', letterSpacing: 2, fontSize: 13,
-  },
-  nextBtn: {
-    backgroundColor: COLORS.green,
-    padding: 14, alignItems: 'center',
-    borderBottomWidth: 3, borderBottomColor: COLORS.greenLight,
-  },
-  nextBtnText: {
-    color: COLORS.white, fontFamily: 'monospace',
-    fontWeight: '900', letterSpacing: 1, fontSize: 12,
-  },
-  notesSection: {
+  pdfBtnText: { color: COLORS.amber, fontFamily: 'monospace', fontWeight: '700', fontSize: 11, letterSpacing: 1 },
+  statsGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
     marginHorizontal: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.surface, padding: 16,
   },
-  notesSectionTitle: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 10, letterSpacing: 3, marginBottom: 12,
+  statBox: {
+    width: '23%', borderWidth: 1, borderRadius: 12, padding: 8, alignItems: 'center',
   },
-  notesContent: {
-    color: COLORS.text, fontFamily: 'monospace',
-    fontSize: 13, lineHeight: 24,
+  statIcon: { fontSize: 14, marginBottom: 4 },
+  statValue: { color: COLORS.white, fontSize: 18, fontWeight: '900' },
+  statValueSmall: { fontSize: 9, fontWeight: '900', marginTop: 6, marginBottom: 6, textAlign: 'center' },
+  statLabel: { fontSize: 8, fontWeight: '800', letterSpacing: 0.5, marginTop: 2 },
+  statSub: { color: COLORS.textDim, fontSize: 8, marginTop: 2, textAlign: 'center' },
+  aboutBox: {
+    marginHorizontal: 16, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.surface, borderRadius: 14, padding: 16,
   },
-  footer: {
-    textAlign: 'center', color: COLORS.textDim,
-    fontSize: 11, margin: 32, fontFamily: 'monospace',
+  aboutTitle: { color: COLORS.white, fontSize: 15, fontWeight: '800', marginBottom: 8 },
+  aboutText: { color: COLORS.textDim, fontSize: 13, lineHeight: 20 },
+  learnBox: {
+    marginHorizontal: 16, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.surface, borderRadius: 14, padding: 16,
   },
+  learnTitle: { color: COLORS.white, fontSize: 15, fontWeight: '800', marginBottom: 10 },
+  learnRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  learnCheck: { color: COLORS.green, fontSize: 13, fontWeight: '900', marginTop: 1 },
+  learnText: { flex: 1, color: COLORS.text, fontSize: 13, lineHeight: 19 },
+  downloadBtn: {
+    marginHorizontal: 16, marginBottom: 14, borderWidth: 1, borderColor: COLORS.blue,
+    padding: 14, alignItems: 'center', backgroundColor: COLORS.surfaceBlue, borderRadius: 10,
+  },
+  downloadBtnActive: { borderColor: COLORS.red, backgroundColor: 'rgba(187,0,0,0.05)' },
+  downloadBtnText: { color: COLORS.white, fontFamily: 'monospace', fontWeight: '700', letterSpacing: 1, fontSize: 12 },
+  certBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginHorizontal: 16, marginBottom: 16, borderWidth: 1, borderColor: COLORS.amber,
+    padding: 14, backgroundColor: 'rgba(255,215,0,0.06)', borderRadius: 10,
+  },
+  certBtnIcon: { fontSize: 16 },
+  certBtnText: { color: COLORS.amber, fontFamily: 'monospace', fontWeight: '800', letterSpacing: 1, fontSize: 13 },
+  certBtnArrow: { color: COLORS.amber, fontSize: 14 },
+  notesSection: {
+    marginHorizontal: 16, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.surface, padding: 16, borderRadius: 12,
+  },
+  notesSectionTitle: { color: COLORS.textDim, fontFamily: 'monospace', fontSize: 10, letterSpacing: 3, marginBottom: 12 },
+  notesContent: { color: COLORS.text, fontFamily: 'monospace', fontSize: 13, lineHeight: 24 },
+  footer: { textAlign: 'center', color: COLORS.textDim, fontSize: 11, margin: 24, fontFamily: 'monospace' },
+  bottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: COLORS.surfaceGreen, borderTopWidth: 1, borderColor: COLORS.green,
+    paddingHorizontal: 18, paddingVertical: 14, paddingBottom: Platform.OS === 'ios' ? 28 : 14,
+  },
+  bottomLabel: { color: COLORS.textDim, fontSize: 11 },
+  bottomValue: { color: COLORS.amber, fontSize: 14, fontWeight: '800', marginTop: 2 },
+  bottomBtn: { backgroundColor: COLORS.green, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 18 },
+  bottomBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  pdfModalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 16, paddingTop: 40, backgroundColor: COLORS.surface,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  pdfModalTitle: { color: COLORS.amber, fontFamily: 'monospace', fontWeight: '900', fontSize: 14 },
+  pdfModalClose: { color: COLORS.red, fontFamily: 'monospace', fontWeight: '900', fontSize: 13 },
 });
