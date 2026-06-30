@@ -1,65 +1,65 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, ActivityIndicator,
-  Alert, Platform, Animated
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, ActivityIndicator, Platform, Alert,
+  Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { useTheme } from '../context/ThemeContext';
 import Avatar from '../components/Avatar';
 
-function AnimatedButton({ onPress, label, loading, style, textStyle, colors }) {
-  const scale = useRef(new Animated.Value(1)).current;
+const COLORS = {
+  bg: '#0a0d0c',
+  card: '#10141a',
+  cardAlt: '#0d1117',
+  border: '#1f2630',
+  green: '#22c55e',
+  muted: '#9ca3af',
+  text: '#ffffff',
+  red: '#ef4444',
+  blue: '#3b82f6',
+};
+
+function MenuItem({ icon, iconBg, title, sub, onPress, danger }) {
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <TouchableOpacity
-        style={[{
-          backgroundColor: colors.green,
-          padding: 16, alignItems: 'center',
-          marginTop: 8, borderRadius: 4,
-          borderBottomWidth: 3,
-          borderBottomColor: colors.greenLight,
-        }, style]}
-        onPress={onPress}
-        onPressIn={() => Animated.spring(scale, {
-          toValue: 0.96, useNativeDriver: true, speed: 50
-        }).start()}
-        onPressOut={() => Animated.spring(scale, {
-          toValue: 1, useNativeDriver: true, speed: 50
-        }).start()}
-        disabled={loading}
-        activeOpacity={1}
-      >
-        {loading
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={[{
-            color: colors.white, fontWeight: '900',
-            letterSpacing: 2, fontFamily: 'monospace', fontSize: 14,
-          }, textStyle]}>{label}</Text>
-        }
-      </TouchableOpacity>
-    </Animated.View>
+    <TouchableOpacity style={styles.item} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.itemIcon, { backgroundColor: iconBg }]}>
+        <Text style={styles.itemIconText}>{icon}</Text>
+      </View>
+      <View style={styles.itemText}>
+        <Text style={[styles.itemTitle, danger && { color: COLORS.red }]}>{title}</Text>
+        <Text style={styles.itemSub}>{sub}</Text>
+      </View>
+      <Text style={styles.chevron}>›</Text>
+    </TouchableOpacity>
   );
 }
 
 export default function ProfileScreen({ navigation }) {
-  const { colors } = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [activeTab, setActiveTab] = useState('info');
+
+  // Edit Personal Info modal
+  const [editVisible, setEditVisible] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+
+  // Security modal
+  const [securityVisible, setSecurityVisible] = useState(false);
+  const [securitySaving, setSecuritySaving] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState(null);
-  const [focusedInput, setFocusedInput] = useState(null);
-  const headerOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
 
   const getUserData = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
@@ -75,23 +75,17 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
-  useEffect(() => {
-    Animated.timing(headerOpacity, {
-      toValue: 1, duration: 600, useNativeDriver: true,
-    }).start();
-    loadProfile();
-  }, []);
-
   const loadProfile = async () => {
     setLoading(true);
     const userData = await getUserData();
     if (userData) {
       const parsed = JSON.parse(userData);
       setUser(parsed);
+      setFirstName(parsed.first_name || '');
+      setLastName(parsed.last_name || '');
       setUsername(parsed.username || '');
       setEmail(parsed.email || '');
       setPhone(parsed.phone || '');
-      setAvatarUrl(parsed.avatar_url || null);
 
       try {
         const res = await fetch(
@@ -100,8 +94,8 @@ export default function ProfileScreen({ navigation }) {
         );
         const data = await res.json();
         if (res.ok && data.avatar_url) {
-          setAvatarUrl(data.avatar_url);
           parsed.avatar_url = data.avatar_url;
+          setUser({ ...parsed });
           await saveUserData(parsed);
         }
       } catch {}
@@ -148,21 +142,8 @@ export default function ProfileScreen({ navigation }) {
             if (!result.canceled) await uploadAvatar(result.assets[0].uri);
           }
         },
-        avatarUrl && {
-          text: '🗑️ Remove Avatar',
-          style: 'destructive',
-          onPress: async () => {
-            setAvatarUrl(null);
-            const userData = await getUserData();
-            if (userData) {
-              const u = JSON.parse(userData);
-              u.avatar_url = null;
-              await saveUserData(u);
-            }
-          },
-        },
         { text: 'CANCEL', style: 'cancel' },
-      ].filter(Boolean)
+      ]
     );
   };
 
@@ -196,9 +177,9 @@ export default function ProfileScreen({ navigation }) {
 
       const data = await res.json();
       if (res.ok) {
-        setAvatarUrl(data.avatar_url);
         u.avatar_url = data.avatar_url;
         await saveUserData(u);
+        setUser({ ...u });
         Alert.alert('✅ Success', 'Avatar updated!');
       } else {
         Alert.alert('Error', data.error || 'Upload failed');
@@ -209,8 +190,21 @@ export default function ProfileScreen({ navigation }) {
     setUploadingAvatar(false);
   };
 
-  const updateProfile = async () => {
-    setSaving(true);
+  const openEditModal = () => {
+    setFirstName(user?.first_name || '');
+    setLastName(user?.last_name || '');
+    setUsername(user?.username || '');
+    setEmail(user?.email || '');
+    setPhone(user?.phone || '');
+    setEditVisible(true);
+  };
+
+  const saveEditProfile = async () => {
+    if (!username.trim() || !email.trim()) {
+      Alert.alert('Error', 'Username and email are required');
+      return;
+    }
+    setEditSaving(true);
     try {
       const res = await fetch(
         'https://scilearnbackend.onrender.com/api/users/update/',
@@ -219,17 +213,27 @@ export default function ProfileScreen({ navigation }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             current_username: user.username,
-            new_username: username,
-            email,
-            phone_number: phone,
+            new_username: username.trim(),
+            email: email.trim(),
+            phone_number: phone.trim(),
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
           }),
         }
       );
       const data = await res.json();
       if (res.ok) {
-        const updated = { ...user, username, email, phone };
+        const updated = {
+          ...user,
+          username: username.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        };
         await saveUserData(updated);
         setUser(updated);
+        setEditVisible(false);
         Alert.alert('✅ Success', 'Profile updated!');
       } else {
         Alert.alert('Error', data.error || 'Update failed');
@@ -237,7 +241,14 @@ export default function ProfileScreen({ navigation }) {
     } catch {
       Alert.alert('Error', 'Cannot connect to server');
     }
-    setSaving(false);
+    setEditSaving(false);
+  };
+
+  const openSecurityModal = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setSecurityVisible(true);
   };
 
   const changePassword = async () => {
@@ -253,7 +264,7 @@ export default function ProfileScreen({ navigation }) {
       Alert.alert('Error', 'Password must be at least 8 characters');
       return;
     }
-    setSaving(true);
+    setSecuritySaving(true);
     try {
       const res = await fetch(
         'https://scilearnbackend.onrender.com/api/users/change-password/',
@@ -273,19 +284,20 @@ export default function ProfileScreen({ navigation }) {
         setNewPassword('');
         setConfirmPassword('');
         Alert.alert('✅ Success', 'Password changed!');
+        setSecurityVisible(false);
       } else {
         Alert.alert('Error', data.error || 'Failed');
       }
     } catch {
       Alert.alert('Error', 'Cannot connect to server');
     }
-    setSaving(false);
+    setSecuritySaving(false);
   };
 
   const deleteAccount = () => {
     Alert.alert(
       '⚠️ Delete Account',
-      'This cannot be undone! All your data will be lost.',
+      'This cannot be undone! All your data, tokens, progress and certificates will be lost.',
       [
         { text: 'CANCEL', style: 'cancel' },
         {
@@ -307,7 +319,8 @@ export default function ProfileScreen({ navigation }) {
                 } else {
                   await AsyncStorage.removeItem('scibase_user');
                 }
-                navigation.replace('Login');
+                setSecurityVisible(false);
+                navigation.replace('Auth');
               }
             } catch {
               Alert.alert('Error', 'Cannot connect to server');
@@ -318,444 +331,469 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'CANCEL', style: 'cancel' },
+        {
+          text: 'LOGOUT',
+          style: 'destructive',
+          onPress: async () => {
+            if (Platform.OS === 'web') {
+              localStorage.removeItem('scibase_user');
+            } else {
+              await AsyncStorage.removeItem('scibase_user');
+            }
+            navigation.replace('Auth');
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator color={colors.green} size="large" />
-        <Text style={[styles.loadingText, { color: colors.green }]}>
-          LOADING PROFILE...
-        </Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color={COLORS.green} size="large" />
+        <Text style={styles.loadingText}>LOADING PROFILE...</Text>
       </View>
     );
   }
 
-  const tabs = [
-    { key: 'info', label: '👤 INFO', color: colors.green },
-    { key: 'password', label: '🔒 PASSWORD', color: colors.blue },
-    { key: 'danger', label: '⚠️ DANGER', color: colors.red },
-  ];
+  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username || 'Engineer';
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.bg }]}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={styles.screen}>
+      <ScrollView showsVerticalScrollIndicator={false}>
 
-      {/* Flag Banner */}
-      <View style={styles.flagBanner}>
-        <View style={[styles.flagStripe, { backgroundColor: colors.black }]} />
-        <View style={[styles.flagStripe, { backgroundColor: colors.red }]} />
-        <View style={[styles.flagStripe, { backgroundColor: colors.green }]} />
-      </View>
-
-      {/* Header */}
-      <Animated.View style={[{
-        padding: 24, paddingTop: 32,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-        backgroundColor: colors.surfaceGreen,
-        opacity: headerOpacity,
-      }]}>
-        <TouchableOpacity
-          style={[styles.backBtn, { borderColor: colors.border }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={[styles.backText, { color: colors.green }]}>← BACK</Text>
-        </TouchableOpacity>
-
-        <Text style={[styles.tag, { color: colors.textDim }]}>
-          // MY ACCOUNT
-        </Text>
-
-        {/* Avatar Section */}
-        <View style={styles.avatarSection}>
-          <TouchableOpacity onPress={pickAvatar} disabled={uploadingAvatar}>
-            <View style={styles.avatarWrapper}>
-              {uploadingAvatar ? (
-                <View style={[styles.avatarLoading, {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.green,
-                }]}>
-                  <ActivityIndicator color={colors.white} />
-                </View>
-              ) : (
-                <Avatar
-                  uri={avatarUrl}
-                  username={user?.username}
-                  size={80}
-                  fontSize={32}
-                />
-              )}
-              <View style={[styles.avatarEditBadge, {
-                backgroundColor: colors.blue,
-                borderColor: colors.bg,
-              }]}>
-                <Text style={styles.avatarEditIcon}>📷</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.avatarInfo}>
-            <Text style={[styles.avatarName, { color: colors.white }]}>
-              {user?.username?.toUpperCase()}
-            </Text>
-            <Text style={[styles.avatarEmail, { color: colors.textDim }]}>
-              {user?.email}
-            </Text>
-            <TouchableOpacity
-              onPress={pickAvatar}
-              style={[styles.changeAvatarBtn, { borderColor: colors.blue }]}
-            >
-              <Text style={[styles.changeAvatarText, { color: colors.blue }]}>
-                {uploadingAvatar ? 'UPLOADING...' : '📸 CHANGE PHOTO'}
-              </Text>
-            </TouchableOpacity>
+        {/* Top row */}
+        <View style={styles.topRow}>
+          <View>
+            <Text style={styles.title}>Profile</Text>
+            <Text style={styles.subtitle}>Manage your account and preferences</Text>
           </View>
-        </View>
-
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={[styles.statItem, {
-            borderColor: colors.green,
-            backgroundColor: colors.bg,
-          }]}>
-            <Text style={[styles.statNum, { color: colors.green }]}>
-              🪙 {user?.tokens || 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textDim }]}>
-              TOKENS
-            </Text>
-          </View>
-          <View style={[styles.statItem, {
-            borderColor: colors.amber,
-            backgroundColor: colors.bg,
-          }]}>
-            <Text style={[styles.statNum, { color: colors.amber }]}>
-              {user?.is_verified ? '✅' : '❌'}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textDim }]}>
-              VERIFIED
-            </Text>
-          </View>
-          <View style={[styles.statItem, {
-            borderColor: colors.blue,
-            backgroundColor: colors.bg,
-          }]}>
-            <Text style={[styles.statNum, { color: colors.blue }]}>🏆 0</Text>
-            <Text style={[styles.statLabel, { color: colors.textDim }]}>
-              COURSES
-            </Text>
-          </View>
-        </View>
-      </Animated.View>
-
-      {/* Tabs */}
-      <View style={[styles.tabs, {
-        borderBottomColor: colors.border,
-        backgroundColor: colors.surface,
-      }]}>
-        {tabs.map(tab => (
           <TouchableOpacity
-            key={tab.key}
-            style={[
-              styles.tab,
-              activeTab === tab.key && {
-                borderBottomColor: tab.color,
-                borderBottomWidth: 3,
-              }
-            ]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text style={[
-              styles.tabText,
-              { color: colors.textDim },
-              activeTab === tab.key && { color: tab.color }
-            ]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* INFO TAB */}
-      {activeTab === 'info' && (
-        <View style={styles.form}>
-          <Text style={[styles.formSectionTitle, { color: colors.textDim }]}>
-            // UPDATE YOUR INFO
-          </Text>
-
-          <Text style={[styles.label, { color: colors.textDim }]}>USERNAME</Text>
-          <TextInput
-            style={[styles.input, {
-              borderColor: focusedInput === 'username' ? colors.green : colors.border,
-              color: colors.text,
-              backgroundColor: colors.bg,
-            }]}
-            value={username}
-            onChangeText={setUsername}
-            placeholderTextColor={colors.textDim}
-            autoCapitalize="none"
-            onFocus={() => setFocusedInput('username')}
-            onBlur={() => setFocusedInput(null)}
-          />
-
-          <Text style={[styles.label, { color: colors.textDim }]}>
-            EMAIL ADDRESS
-          </Text>
-          <TextInput
-            style={[styles.input, {
-              borderColor: focusedInput === 'email' ? colors.green : colors.border,
-              color: colors.text,
-              backgroundColor: colors.bg,
-            }]}
-            value={email}
-            onChangeText={setEmail}
-            placeholderTextColor={colors.textDim}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            onFocus={() => setFocusedInput('email')}
-            onBlur={() => setFocusedInput(null)}
-          />
-
-          <Text style={[styles.label, { color: colors.textDim }]}>
-            PHONE NUMBER
-          </Text>
-          <TextInput
-            style={[styles.input, {
-              borderColor: focusedInput === 'phone' ? colors.green : colors.border,
-              color: colors.text,
-              backgroundColor: colors.bg,
-            }]}
-            value={phone}
-            onChangeText={setPhone}
-            placeholderTextColor={colors.textDim}
-            keyboardType="phone-pad"
-            onFocus={() => setFocusedInput('phone')}
-            onBlur={() => setFocusedInput(null)}
-          />
-
-          {/* Theme Button */}
-          <TouchableOpacity
-            style={[styles.themeBtn, {
-              borderColor: colors.blue,
-              backgroundColor: colors.surfaceBlue,
-            }]}
+            style={styles.settingsBtn}
             onPress={() => navigation.navigate('Theme')}
           >
-            <Text style={[styles.themeBtnText, { color: colors.blue }]}>
-              🎨 CHANGE APP THEME
-            </Text>
+            <Text style={styles.settingsIcon}>⚙️</Text>
           </TouchableOpacity>
-
-          <AnimatedButton
-            label="💾 SAVE CHANGES"
-            onPress={updateProfile}
-            loading={saving}
-            colors={colors}
-          />
         </View>
-      )}
 
-      {/* PASSWORD TAB */}
-      {activeTab === 'password' && (
-        <View style={styles.form}>
-          <Text style={[styles.formSectionTitle, { color: colors.textDim }]}>
-            // CHANGE PASSWORD
-          </Text>
-
-          <Text style={[styles.label, { color: colors.textDim }]}>
-            CURRENT PASSWORD
-          </Text>
-          <TextInput
-            style={[styles.input, {
-              borderColor: focusedInput === 'current' ? colors.blue : colors.border,
-              color: colors.text,
-              backgroundColor: colors.bg,
-            }]}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            secureTextEntry
-            placeholder="••••••••"
-            placeholderTextColor={colors.textDim}
-            onFocus={() => setFocusedInput('current')}
-            onBlur={() => setFocusedInput(null)}
-          />
-
-          <Text style={[styles.label, { color: colors.textDim }]}>
-            NEW PASSWORD
-          </Text>
-          <TextInput
-            style={[styles.input, {
-              borderColor: focusedInput === 'new' ? colors.blue : colors.border,
-              color: colors.text,
-              backgroundColor: colors.bg,
-            }]}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-            placeholder="min. 8 characters"
-            placeholderTextColor={colors.textDim}
-            onFocus={() => setFocusedInput('new')}
-            onBlur={() => setFocusedInput(null)}
-          />
-
-          <Text style={[styles.label, { color: colors.textDim }]}>
-            CONFIRM NEW PASSWORD
-          </Text>
-          <TextInput
-            style={[styles.input, {
-              borderColor: focusedInput === 'confirm' ? colors.blue : colors.border,
-              color: colors.text,
-              backgroundColor: colors.bg,
-            }]}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-            placeholder="••••••••"
-            placeholderTextColor={colors.textDim}
-            onFocus={() => setFocusedInput('confirm')}
-            onBlur={() => setFocusedInput(null)}
-          />
-
-          <AnimatedButton
-            label="🔒 CHANGE PASSWORD"
-            onPress={changePassword}
-            loading={saving}
-            colors={colors}
-            style={{ backgroundColor: colors.blue }}
-          />
-        </View>
-      )}
-
-      {/* DANGER TAB */}
-      {activeTab === 'danger' && (
-        <View style={styles.form}>
-          <Text style={[styles.formSectionTitle, { color: colors.textDim }]}>
-            // DANGER ZONE
-          </Text>
-
-          <View style={[styles.dangerWarning, {
-            borderColor: colors.red,
-            backgroundColor: 'rgba(187,0,0,0.05)',
-          }]}>
-            <Text style={styles.dangerIcon}>⚠️</Text>
-            <Text style={[styles.dangerText, { color: colors.textDim }]}>
-              Deleting your account will permanently remove all your data,
-              tokens, progress and certificates. This cannot be undone!
-            </Text>
+        {/* Profile card */}
+        <View style={[styles.card, styles.profileCard]}>
+          <View style={styles.profileLeft}>
+            <TouchableOpacity onPress={pickAvatar} disabled={uploadingAvatar}>
+              <View style={styles.avatarWrapper}>
+                {uploadingAvatar ? (
+                  <View style={styles.avatarLoading}>
+                    <ActivityIndicator color={COLORS.green} />
+                  </View>
+                ) : (
+                  <Avatar
+                    uri={user?.avatar_url}
+                    username={user?.username}
+                    size={96}
+                    fontSize={36}
+                  />
+                )}
+                <View style={styles.camBadge}>
+                  <Text style={styles.camBadgeIcon}>📷</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+            <View style={styles.nameBlock}>
+              <Text style={styles.nameText} numberOfLines={1}>{fullName}</Text>
+              <Text style={styles.roleText}>Learner</Text>
+              <View style={styles.contactRow}>
+                <Text style={styles.contactIcon}>✉️</Text>
+                <Text style={styles.contactText} numberOfLines={1}>{user?.email}</Text>
+              </View>
+              <View style={styles.contactRow}>
+                <Text style={styles.contactIcon}>📞</Text>
+                <Text style={styles.contactText}>{user?.phone || 'No phone'}</Text>
+              </View>
+            </View>
           </View>
+          <TouchableOpacity style={styles.editBtn} onPress={openEditModal}>
+            <Text style={styles.editBtnText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
 
-          <AnimatedButton
-            label="🗑️ DELETE MY ACCOUNT"
-            onPress={deleteAccount}
-            colors={colors}
-            style={{
-              backgroundColor: 'transparent',
-              borderWidth: 2,
-              borderColor: colors.red,
-              borderBottomColor: colors.red,
-            }}
-            textStyle={{ color: colors.red }}
+        {/* ACCOUNT */}
+        <View style={[styles.card, styles.listCard]}>
+          <Text style={styles.sectionLabel}>ACCOUNT</Text>
+
+          <MenuItem
+            icon="👤" iconBg="#0f2a18"
+            title="Personal Information"
+            sub="Update your name, email and phone number"
+            onPress={openEditModal}
+          />
+          <MenuItem
+            icon="🛡️" iconBg="#0e1c33"
+            title="Security"
+            sub="Change password and security settings"
+            onPress={openSecurityModal}
+          />
+          <MenuItem
+            icon="🔔" iconBg="#211233"
+            title="Notifications"
+            sub="Manage your notification preferences"
+            onPress={() => navigation.navigate('Notifications')}
+          />
+          <MenuItem
+            icon="💳" iconBg="#2b2410"
+            title="Payment Methods"
+            sub="Manage your payment methods"
+            onPress={() => navigation.navigate('Tokens')}
+          />
+          <MenuItem
+            icon="🪙" iconBg="#0f2a18"
+            title="Token Balance"
+            sub="View your token balance and transactions"
+            onPress={() => navigation.navigate('Tokens')}
+          />
+          <MenuItem
+            icon="🧾" iconBg="#211233"
+            title="Purchase History"
+            sub="View your token purchase history"
+            onPress={() => navigation.navigate('Tokens')}
+          />
+          <MenuItem
+            icon="⬇️" iconBg="#0e1c33"
+            title="Downloads"
+            sub="View your downloaded resources"
+            onPress={() => navigation.navigate('Courses')}
+          />
+          <MenuItem
+            icon="🎨" iconBg="#2b2410"
+            title="Appearance"
+            sub="Choose your app theme"
+            onPress={() => navigation.navigate('Theme')}
+          />
+          <MenuItem
+            icon="🌐" iconBg="#0e1c33"
+            title="Language"
+            sub="Choose your preferred language"
+            onPress={() => Alert.alert('Coming Soon', 'Language selection is coming soon!')}
           />
         </View>
-      )}
 
-      <Text style={[styles.footer, { color: colors.textDim }]}>
-        Developed by: 💞🙏 Engineer Joe 🇰🇪
-      </Text>
-    </ScrollView>
+        {/* SUPPORT */}
+        <View style={[styles.card, styles.listCard]}>
+          <Text style={styles.sectionLabel}>SUPPORT</Text>
+
+          <MenuItem
+            icon="❓" iconBg="#0e1c33"
+            title="Help & Support"
+            sub="Get help and contact support"
+            onPress={() => navigation.navigate('QA')}
+          />
+          <MenuItem
+            icon="📄" iconBg="#0f2a18"
+            title="Terms & Conditions"
+            sub="Read our terms and conditions"
+            onPress={() => Alert.alert('Terms & Conditions', 'Coming soon!')}
+          />
+          <MenuItem
+            icon="🛡️" iconBg="#211233"
+            title="Privacy Policy"
+            sub="Read our privacy policy"
+            onPress={() => Alert.alert('Privacy Policy', 'Coming soon!')}
+          />
+          <MenuItem
+            icon="↪️" iconBg="#341212"
+            title="Log Out"
+            sub="Sign out from your account"
+            onPress={handleLogout}
+            danger
+          />
+        </View>
+
+        <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe 🇰🇪</Text>
+
+      </ScrollView>
+
+      {/* EDIT PERSONAL INFO MODAL */}
+      <Modal
+        visible={editVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Personal Information</Text>
+              <TouchableOpacity onPress={() => setEditVisible(false)}>
+                <Text style={styles.modalCloseX}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.fieldLabel}>FIRST NAME</Text>
+              <TextInput
+                style={styles.input}
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="First name"
+                placeholderTextColor={COLORS.muted}
+                autoCapitalize="words"
+              />
+
+              <Text style={styles.fieldLabel}>LAST NAME</Text>
+              <TextInput
+                style={styles.input}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Last name"
+                placeholderTextColor={COLORS.muted}
+                autoCapitalize="words"
+              />
+
+              <Text style={styles.fieldLabel}>USERNAME</Text>
+              <TextInput
+                style={styles.input}
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Username"
+                placeholderTextColor={COLORS.muted}
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.fieldLabel}>EMAIL ADDRESS</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Email"
+                placeholderTextColor={COLORS.muted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.fieldLabel}>PHONE NUMBER</Text>
+              <TextInput
+                style={styles.input}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Phone number"
+                placeholderTextColor={COLORS.muted}
+                keyboardType="phone-pad"
+              />
+
+              <TouchableOpacity
+                style={[styles.saveBtn, editSaving && { opacity: 0.7 }]}
+                onPress={saveEditProfile}
+                disabled={editSaving}
+              >
+                {editSaving ? (
+                  <ActivityIndicator color="#06150c" />
+                ) : (
+                  <Text style={styles.saveBtnText}>SAVE CHANGES</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* SECURITY MODAL */}
+      <Modal
+        visible={securityVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSecurityVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Security</Text>
+              <TouchableOpacity onPress={() => setSecurityVisible(false)}>
+                <Text style={styles.modalCloseX}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.fieldLabel}>CURRENT PASSWORD</Text>
+              <TextInput
+                style={styles.input}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="••••••••"
+                placeholderTextColor={COLORS.muted}
+                secureTextEntry
+              />
+
+              <Text style={styles.fieldLabel}>NEW PASSWORD</Text>
+              <TextInput
+                style={styles.input}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="min. 8 characters"
+                placeholderTextColor={COLORS.muted}
+                secureTextEntry
+              />
+
+              <Text style={styles.fieldLabel}>CONFIRM NEW PASSWORD</Text>
+              <TextInput
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="••••••••"
+                placeholderTextColor={COLORS.muted}
+                secureTextEntry
+              />
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: COLORS.blue }, securitySaving && { opacity: 0.7 }]}
+                onPress={changePassword}
+                disabled={securitySaving}
+              >
+                {securitySaving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={[styles.saveBtnText, { color: '#fff' }]}>CHANGE PASSWORD</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.dangerBox}>
+                <Text style={styles.dangerIcon}>⚠️</Text>
+                <Text style={styles.dangerText}>
+                  Deleting your account permanently removes all your data, tokens, progress and certificates.
+                </Text>
+              </View>
+
+              <TouchableOpacity style={styles.deleteBtn} onPress={deleteAccount}>
+                <Text style={styles.deleteBtnText}>🗑️ DELETE MY ACCOUNT</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  screen: { flex: 1, backgroundColor: COLORS.bg },
   loadingContainer: {
-    flex: 1, justifyContent: 'center', alignItems: 'center',
+    flex: 1, backgroundColor: COLORS.bg,
+    justifyContent: 'center', alignItems: 'center',
   },
-  loadingText: {
-    fontFamily: 'monospace', marginTop: 16, letterSpacing: 3, fontSize: 11,
+  loadingText: { color: COLORS.green, marginTop: 16, letterSpacing: 2, fontWeight: '700' },
+  topRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingHorizontal: 20, paddingTop: 50, marginBottom: 18,
   },
-  flagBanner: { flexDirection: 'row', height: 6 },
-  flagStripe: { flex: 1 },
-  backBtn: {
-    alignSelf: 'flex-start', borderWidth: 1,
-    paddingVertical: 6, paddingHorizontal: 14, marginBottom: 16,
+  title: { fontSize: 30, fontWeight: '900', color: COLORS.text },
+  subtitle: { fontSize: 13, color: COLORS.muted, marginTop: 4 },
+  settingsBtn: {
+    width: 42, height: 42, borderRadius: 12, borderWidth: 1, borderColor: COLORS.green,
+    backgroundColor: '#0c1410', alignItems: 'center', justifyContent: 'center',
   },
-  backText: { fontFamily: 'monospace', fontSize: 12, letterSpacing: 2 },
-  tag: { fontSize: 10, letterSpacing: 3, fontFamily: 'monospace', marginBottom: 16 },
-  avatarSection: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 16, marginBottom: 20,
+  settingsIcon: { fontSize: 18 },
+  card: {
+    marginHorizontal: 18, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 18, backgroundColor: COLORS.cardAlt, padding: 20, marginBottom: 16,
   },
+  profileCard: {
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap',
+  },
+  profileLeft: { flexDirection: 'row', gap: 16, flex: 1, minWidth: 200 },
   avatarWrapper: { position: 'relative' },
   avatarLoading: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 96, height: 96, borderRadius: 48, backgroundColor: COLORS.card,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2,
   },
-  avatarEditBadge: {
-    position: 'absolute', bottom: -4, right: -4,
-    width: 26, height: 26, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2,
+  camBadge: {
+    position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: 14,
+    backgroundColor: COLORS.green, alignItems: 'center', justifyContent: 'center',
   },
-  avatarEditIcon: { fontSize: 12 },
-  avatarInfo: { flex: 1 },
-  avatarName: {
-    fontSize: 18, fontWeight: '900', fontFamily: 'monospace',
+  camBadgeIcon: { fontSize: 12 },
+  nameBlock: { flex: 1 },
+  nameText: { fontSize: 19, fontWeight: '700', color: COLORS.text, marginTop: 4 },
+  roleText: { color: COLORS.green, fontSize: 13, fontWeight: '600', marginBottom: 8 },
+  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 3 },
+  contactIcon: { fontSize: 12 },
+  contactText: { color: '#cbd5e1', fontSize: 12.5, flexShrink: 1 },
+  editBtn: {
+    borderWidth: 1, borderColor: COLORS.green, borderRadius: 10,
+    paddingHorizontal: 16, paddingVertical: 10, marginTop: 6,
   },
-  avatarEmail: { fontFamily: 'monospace', fontSize: 11, marginTop: 4 },
-  changeAvatarBtn: {
-    marginTop: 8, alignSelf: 'flex-start',
-    borderWidth: 1, paddingVertical: 4, paddingHorizontal: 10,
+  editBtnText: { color: COLORS.green, fontSize: 13, fontWeight: '700' },
+  listCard: { paddingVertical: 6, paddingHorizontal: 18 },
+  sectionLabel: {
+    color: COLORS.green, fontSize: 11, fontWeight: '800',
+    letterSpacing: 1, marginTop: 8, marginBottom: 6,
   },
-  changeAvatarText: { fontFamily: 'monospace', fontSize: 10, letterSpacing: 1 },
-  statsRow: { flexDirection: 'row', gap: 8 },
-  statItem: {
-    flex: 1, borderWidth: 1,
-    padding: 10, alignItems: 'center',
+  item: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#182027',
   },
-  statNum: { fontFamily: 'monospace', fontWeight: '900', fontSize: 14 },
-  statLabel: { fontFamily: 'monospace', fontSize: 9, letterSpacing: 1, marginTop: 4 },
-  tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
+  itemIcon: {
+    width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
   },
-  tab: {
-    flex: 1, padding: 16, alignItems: 'center',
-    borderBottomWidth: 3, borderBottomColor: 'transparent',
+  itemIconText: { fontSize: 17 },
+  itemText: { flex: 1 },
+  itemTitle: { fontSize: 14.5, fontWeight: '700', color: COLORS.text },
+  itemSub: { fontSize: 11.5, color: COLORS.muted, marginTop: 2 },
+  chevron: { color: '#6b7280', fontSize: 20 },
+  footer: {
+    textAlign: 'center', color: COLORS.muted, fontSize: 11,
+    fontFamily: 'monospace', marginVertical: 24,
   },
-  tabText: { fontFamily: 'monospace', fontSize: 11, letterSpacing: 1 },
-  form: { padding: 24 },
-  formSectionTitle: {
-    fontSize: 10, letterSpacing: 3,
-    fontFamily: 'monospace', marginBottom: 24,
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
   },
-  label: {
-    fontSize: 11, letterSpacing: 3,
-    marginBottom: 8, fontFamily: 'monospace',
+  modalSheet: {
+    backgroundColor: COLORS.cardAlt, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderWidth: 1, borderColor: COLORS.border, borderBottomWidth: 0,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 30, maxHeight: '88%',
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border,
+    alignSelf: 'center', marginBottom: 14,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18,
+  },
+  modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800' },
+  modalCloseX: { color: COLORS.muted, fontSize: 20 },
+  fieldLabel: {
+    color: COLORS.muted, fontSize: 11, letterSpacing: 1.5,
+    marginBottom: 8, marginTop: 4, fontWeight: '700',
   },
   input: {
-    borderWidth: 1, padding: 14,
-    marginBottom: 20, fontFamily: 'monospace',
-    fontSize: 14, borderRadius: 4,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 10,
+    padding: 14, color: COLORS.text, fontSize: 14, marginBottom: 14,
+    backgroundColor: COLORS.bg,
   },
-  themeBtn: {
-    borderWidth: 1, padding: 14,
-    alignItems: 'center', marginBottom: 12,
+  saveBtn: {
+    backgroundColor: COLORS.green, borderRadius: 12, padding: 16,
+    alignItems: 'center', marginTop: 8, marginBottom: 8,
   },
-  themeBtnText: {
-    fontFamily: 'monospace', fontWeight: '700',
-    letterSpacing: 2, fontSize: 13,
+  saveBtnText: { color: '#06150c', fontWeight: '900', letterSpacing: 1, fontSize: 13 },
+  dangerBox: {
+    flexDirection: 'row', gap: 10, borderWidth: 1, borderColor: COLORS.red,
+    backgroundColor: 'rgba(239,68,68,0.06)', borderRadius: 10, padding: 14, marginTop: 18, marginBottom: 14,
   },
-  dangerWarning: {
-    flexDirection: 'row', gap: 12,
-    borderWidth: 1, padding: 16, marginBottom: 24,
+  dangerIcon: { fontSize: 16 },
+  dangerText: { flex: 1, color: '#cbd5e1', fontSize: 11.5, lineHeight: 17 },
+  deleteBtn: {
+    borderWidth: 1.5, borderColor: COLORS.red, borderRadius: 12,
+    padding: 14, alignItems: 'center', marginBottom: 10,
   },
-  dangerIcon: { fontSize: 20 },
-  dangerText: { flex: 1, fontFamily: 'monospace', fontSize: 12, lineHeight: 20 },
-  footer: {
-    textAlign: 'center', fontSize: 11,
-    margin: 32, fontFamily: 'monospace',
-  },
+  deleteBtnText: { color: COLORS.red, fontWeight: '900', letterSpacing: 1, fontSize: 12.5 },
 });
