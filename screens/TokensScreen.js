@@ -1,865 +1,471 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, ActivityIndicator,
-  Alert, Animated, Platform, TextInput, Modal
+  TouchableOpacity, ActivityIndicator, Platform, Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import COLORS from '../constants/colors';
-import { endpoints } from '../constants/api';
 
-function TokenCard({ pkg, index, onBuyMpesa, onBuyPaypal }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
+const COLORS = {
+  bg: '#0b0e0c',
+  panel: '#11151a',
+  green: '#22c55e',
+  greenDark: '#16331f',
+  purple: '#8b5cf6',
+  blue: '#3b82f6',
+  gold: '#eab308',
+  text: '#ffffff',
+  muted: '#9ca3af',
+  border: '#1f2937',
+};
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1, duration: 400,
-        delay: index * 100, useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0, duration: 400,
-        delay: index * 100, useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+const PAY_METHODS = [
+  { id: 'mpesa', label: 'M-Pesa', color: '#1bbf4c', initial: 'M' },
+  { id: 'airtel', label: 'Airtel Money', color: '#e2231a', initial: 'A' },
+  { id: 'card', label: 'VISA / MC', color: '#1a1f71', initial: 'V' },
+  { id: 'bank', label: 'Bank Transfer', color: '#374151', initial: '🏦' },
+];
 
-  const isPopular = index === 1;
-
+function PackageCard({ pkg, onBuy, tierStyle }) {
   return (
-    <Animated.View style={{ opacity, transform: [{ translateY }, { scale }] }}>
-      {isPopular && (
-        <View style={styles.popularBadge}>
-          <Text style={styles.popularText}>🔥 MOST POPULAR</Text>
+    <View style={[styles.pkgCard, tierStyle.card]}>
+      <View style={styles.pkgLeft}>
+        <View style={[styles.pkgIcon, tierStyle.iconBg]}>
+          {tierStyle.badge ? (
+            <View style={[styles.pkgBadge, { backgroundColor: tierStyle.badgeColor }]}>
+              <Text style={styles.pkgBadgeText}>{tierStyle.badge}</Text>
+            </View>
+          ) : null}
+          <Text style={styles.pkgIconText}>🪙</Text>
         </View>
-      )}
-      <View style={[styles.tokenCard, isPopular && styles.tokenCardPopular]}>
-        <View style={styles.tokenCardTop}>
-          <Text style={styles.tokenAmount}>{pkg.amount}</Text>
-          <Text style={styles.tokenUnit}>TOKENS</Text>
-          <Text style={styles.tokenPrice}>KES {pkg.price_kes}</Text>
-          <Text style={styles.tokenValue}>= {pkg.amount} mins of content</Text>
-        </View>
-        <View style={styles.tokenCardButtons}>
-          <TouchableOpacity
-            style={[styles.buyBtn, { borderColor: COLORS.green }]}
-            onPress={() => onBuyMpesa(pkg)}
-            onPressIn={() => Animated.spring(scale, {
-              toValue: 0.96, useNativeDriver: true, speed: 50
-            }).start()}
-            onPressOut={() => Animated.spring(scale, {
-              toValue: 1, useNativeDriver: true, speed: 50
-            }).start()}
-          >
-            <Text style={[styles.buyBtnIcon]}>📱</Text>
-            <Text style={[styles.buyBtnText, { color: COLORS.green }]}>M-PESA</Text>
-            <Text style={[styles.buyBtnSub, { color: COLORS.green }]}>STK PUSH</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.buyBtn, { borderColor: COLORS.blue }]}
-            onPress={() => onBuyPaypal(pkg)}
-          >
-            <Text style={styles.buyBtnIcon}>💳</Text>
-            <Text style={[styles.buyBtnText, { color: COLORS.blue }]}>PAYPAL</Text>
-            <Text style={[styles.buyBtnSub, { color: COLORS.blue }]}>COMING SOON</Text>
-          </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.pkgName}>{pkg.tokens} Tokens</Text>
+          <Text style={styles.pkgSub}>{pkg.label}</Text>
+          <View style={[styles.bonusTag, { backgroundColor: tierStyle.bonusBg, borderColor: tierStyle.bonusBorder }]}>
+            <Text style={[styles.bonusTagText, { color: tierStyle.color }]}>+{pkg.bonus} Bonus</Text>
+          </View>
         </View>
       </View>
-    </Animated.View>
+      <View style={styles.pkgRight}>
+        <Text style={[styles.pkgPrice, { color: tierStyle.color }]}>
+          KES {pkg.price_kes.toFixed(2)}
+        </Text>
+        <Text style={styles.pkgUsd}>≈ ${pkg.price_usd.toFixed(2)}</Text>
+        <TouchableOpacity
+          style={[styles.buyBtn, { backgroundColor: tierStyle.color }]}
+          onPress={() => onBuy(pkg)}
+        >
+          <Text style={styles.buyBtnText}>Buy Now</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
-export default function TokensScreen({ navigation }) {
-  const [packages, setPackages] = useState([]);
-  const [balance, setBalance] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [username, setUsername] = useState('');
-  const [userPhone, setUserPhone] = useState('');
-  const [transactions, setTransactions] = useState([]);
+const TIER_STYLES = {
+  featured: {
+    card: { borderColor: '#2a5c39', backgroundColor: '#0c1610' },
+    iconBg: { backgroundColor: '#1c7a3c' },
+    badge: '⭐', badgeColor: COLORS.gold,
+    bonusBg: '#143620', bonusBorder: '#1f5c33',
+    color: COLORS.green,
+  },
+  purple: {
+    card: { borderColor: COLORS.border, backgroundColor: '#0e1217' },
+    iconBg: { backgroundColor: '#5b2fa3' },
+    badge: null, badgeColor: '',
+    bonusBg: '#2c1750', bonusBorder: '#5b2fa3',
+    color: COLORS.purple,
+  },
+  blue: {
+    card: { borderColor: COLORS.border, backgroundColor: '#0e1217' },
+    iconBg: { backgroundColor: '#1d4ed8' },
+    badge: null, badgeColor: '',
+    bonusBg: '#0c1f4a', bonusBorder: '#1d4ed8',
+    color: COLORS.blue,
+  },
+  crown: {
+    card: { borderColor: '#7a5a10', backgroundColor: '#16130a' },
+    iconBg: { backgroundColor: '#a16207' },
+    badge: '👑', badgeColor: '#fbbf24',
+    bonusBg: '#3f2e06', bonusBorder: '#a16207',
+    color: COLORS.gold,
+  },
+};
 
-  // Payment state
-  const [showPhoneModal, setShowPhoneModal] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState(null);
-  const [phoneInput, setPhoneInput] = useState('');
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState(null);
-  const [checkingPayment, setCheckingPayment] = useState(false);
-  const [currentTransactionId, setCurrentTransactionId] = useState(null);
+export default function TokensScreen({ navigation }) {
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [packages, setPackages] = useState([]);
+  const [selectedMethod, setSelectedMethod] = useState('mpesa');
+
+  useEffect(() => {
+    loadAll();
+  }, []);
 
   const getUserData = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
     return await AsyncStorage.getItem('scibase_user');
   };
 
-  const saveUserData = async (data) => {
-    const json = JSON.stringify(data);
-    if (Platform.OS === 'web') {
-      localStorage.setItem('scibase_user', json);
-    } else {
-      await AsyncStorage.setItem('scibase_user', json);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadAll = async () => {
     setLoading(true);
-    const userData = await getUserData();
-    if (userData) {
-      const user = JSON.parse(userData);
-      setBalance(user.tokens || 0);
-      setUsername(user.username || '');
-      setUserPhone(user.phone || '');
-      setPhoneInput(user.phone || '');
-    }
-
-    // Load packages
     try {
-      const res = await fetch(endpoints.tokens);
-      const data = await res.json();
-      setPackages(data.packages || []);
-    } catch {}
-
-    // Load transaction history
-    try {
-      const userData2 = await getUserData();
-      if (userData2) {
-        const user = JSON.parse(userData2);
-        const res = await fetch(
-          'https://scilearnbackend.onrender.com/api/mpesa/history/',
-          { headers: { 'X-Username': user.username } }
-        );
-        const data = await res.json();
-        setTransactions(data.transactions || []);
+      const userData = await getUserData();
+      let username = null;
+      if (userData) {
+        const parsed = JSON.parse(userData);
+        setUser(parsed);
+        username = parsed.username;
       }
-    } catch {}
 
+      if (username) {
+        const statsRes = await fetch(
+          'https://scilearnbackend.onrender.com/api/tokens/stats/',
+          { headers: { 'X-Username': username } }
+        );
+        const statsData = await statsRes.json();
+        if (statsRes.ok) setStats(statsData);
+      }
+
+      const pkgRes = await fetch(
+        'https://scilearnbackend.onrender.com/api/tokens/packages/'
+      );
+      const pkgData = await pkgRes.json();
+      if (pkgRes.ok) setPackages(pkgData.packages || []);
+    } catch {}
     setLoading(false);
   };
 
-  const handleBuyMpesa = (pkg) => {
-    setSelectedPackage(pkg);
-    setShowPhoneModal(true);
-    setPaymentStatus(null);
-  };
-
-  const handleBuyPaypal = (pkg) => {
+  const handleBuy = async (pkg) => {
     Alert.alert(
-      '💳 PayPal',
-      'PayPal integration coming soon! Stay tuned 🚀',
-      [{ text: 'OK' }]
+      `Buy ${pkg.tokens} Tokens`,
+      `KES ${pkg.price_kes.toFixed(2)} via ${PAY_METHODS.find(m => m.id === selectedMethod)?.label}`,
+      [
+        { text: 'CANCEL', style: 'cancel' },
+        {
+          text: 'CONFIRM',
+          onPress: async () => {
+            try {
+              const userData = await getUserData();
+              const u = userData ? JSON.parse(userData) : null;
+              const res = await fetch(
+                'https://scilearnbackend.onrender.com/api/tokens/purchase/',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Username': u?.username || '',
+                  },
+                  body: JSON.stringify({
+                    package_id: pkg.id,
+                    payment_method: selectedMethod,
+                  }),
+                }
+              );
+              const data = await res.json();
+              Alert.alert(
+                res.status === 202 ? '⏳ Coming Soon' : (res.ok ? '✅ Success' : 'Error'),
+                data.message || data.error || 'Something happened'
+              );
+            } catch {
+              Alert.alert('Error', 'Cannot connect to server');
+            }
+          }
+        }
+      ]
     );
   };
 
-  const initiatePayment = async () => {
-    if (!phoneInput || phoneInput.length < 9) {
-      Alert.alert('Error', 'Please enter a valid phone number');
-      return;
-    }
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color={COLORS.green} size="large" />
+        <Text style={styles.loadingText}>LOADING WALLET...</Text>
+      </View>
+    );
+  }
 
-    setPaymentLoading(true);
-    setPaymentStatus('initiating');
-
-    try {
-      const res = await fetch(
-        'https://scilearnbackend.onrender.com/api/mpesa/stk-push/',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Username': username,
-          },
-          body: JSON.stringify({
-            phone_number: phoneInput,
-            amount: selectedPackage.price_kes,
-            tokens: selectedPackage.amount,
-            package_id: selectedPackage.id,
-          }),
-        }
-      );
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setCurrentTransactionId(data.transaction_id);
-        setPaymentStatus('pending');
-        setPaymentLoading(false);
-        startPolling(data.transaction_id);
-      } else {
-        setPaymentStatus('failed');
-        setPaymentLoading(false);
-        Alert.alert('❌ Error', data.error || 'Payment initiation failed');
-      }
-    } catch (e) {
-      setPaymentStatus('failed');
-      setPaymentLoading(false);
-      Alert.alert('Error', 'Cannot connect to server');
-    }
-  };
-
-  const startPolling = (txId) => {
-    setCheckingPayment(true);
-    let attempts = 0;
-
-    const interval = setInterval(async () => {
-      attempts++;
-      if (attempts > 12) {
-        clearInterval(interval);
-        setCheckingPayment(false);
-        setPaymentStatus('timeout');
-        return;
-      }
-
-      try {
-        const res = await fetch(
-          'https://scilearnbackend.onrender.com/api/mpesa/status/',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transaction_id: txId }),
-          }
-        );
-        const data = await res.json();
-
-        if (data.status === 'success') {
-          clearInterval(interval);
-          setCheckingPayment(false);
-          setPaymentStatus('success');
-
-          // Update balance
-          const newBalance = balance + data.tokens;
-          setBalance(newBalance);
-
-          // Update stored user data
-          const userData = await getUserData();
-          if (userData) {
-            const user = JSON.parse(userData);
-            user.tokens = newBalance;
-            await saveUserData(user);
-          }
-
-          // Refresh transactions
-          loadData();
-
-        } else if (data.status === 'failed' || data.status === 'cancelled') {
-          clearInterval(interval);
-          setCheckingPayment(false);
-          setPaymentStatus('failed');
-        }
-      } catch {}
-    }, 5000);
-  };
-
-  const closeModal = () => {
-    setShowPhoneModal(false);
-    setPaymentStatus(null);
-    setPaymentLoading(false);
-    setSelectedPackage(null);
-    setCheckingPayment(false);
-  };
-
-  const renderPaymentStatus = () => {
-    switch (paymentStatus) {
-      case 'initiating':
-        return (
-          <View style={styles.statusBox}>
-            <ActivityIndicator color={COLORS.green} size="large" />
-            <Text style={styles.statusText}>Sending STK Push...</Text>
-            <Text style={styles.statusSub}>Please wait</Text>
-          </View>
-        );
-      case 'pending':
-        return (
-          <View style={styles.statusBox}>
-            <Text style={styles.statusIcon}>📲</Text>
-            <Text style={[styles.statusText, { color: COLORS.amber }]}>
-              CHECK YOUR PHONE!
-            </Text>
-            <Text style={styles.statusSub}>
-              Enter your M-PESA PIN to complete payment
-            </Text>
-            {checkingPayment && (
-              <View style={styles.pollingRow}>
-                <ActivityIndicator color={COLORS.green} size="small" />
-                <Text style={styles.pollingText}> Verifying payment...</Text>
-              </View>
-            )}
-          </View>
-        );
-      case 'success':
-        return (
-          <View style={styles.statusBox}>
-            <Text style={styles.statusIcon}>🎉</Text>
-            <Text style={[styles.statusText, { color: COLORS.green }]}>
-              PAYMENT SUCCESSFUL!
-            </Text>
-            <Text style={styles.statusSub}>
-              {selectedPackage?.amount} tokens added to your account
-            </Text>
-            <TouchableOpacity style={styles.doneBtn} onPress={closeModal}>
-              <Text style={styles.doneBtnText}>✓ DONE</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      case 'failed':
-        return (
-          <View style={styles.statusBox}>
-            <Text style={styles.statusIcon}>❌</Text>
-            <Text style={[styles.statusText, { color: COLORS.red }]}>
-              PAYMENT FAILED
-            </Text>
-            <Text style={styles.statusSub}>Please try again</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={() => {
-              setPaymentStatus(null);
-              setPaymentLoading(false);
-            }}>
-              <Text style={styles.retryBtnText}>↺ TRY AGAIN</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      case 'timeout':
-        return (
-          <View style={styles.statusBox}>
-            <Text style={styles.statusIcon}>⏱️</Text>
-            <Text style={[styles.statusText, { color: COLORS.amber }]}>
-              VERIFICATION TIMEOUT
-            </Text>
-            <Text style={styles.statusSub}>
-              Payment may still be processing.{'\n'}
-              Check your notifications.
-            </Text>
-            <TouchableOpacity style={styles.doneBtn} onPress={closeModal}>
-              <Text style={styles.doneBtnText}>✓ CLOSE</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
+  const balance = stats?.balance ?? (user?.tokens || 0);
+  const kesEq = stats?.kes_equivalent ?? balance * 10;
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-
-      {/* Flag Banner */}
-      <View style={styles.flagBanner}>
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
-        <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
-      </View>
+    <ScrollView style={styles.screen} showsVerticalScrollIndicator={false}>
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.tag}>// TOKEN STORE</Text>
-        <Text style={styles.title}>BUY TOKENS 🪙</Text>
-        <Text style={styles.subtitle}>Power your learning journey 🚀</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.backBtnText}>‹</Text>
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.title}>Token Wallet</Text>
+            <Text style={styles.subtitle}>Manage your tokens and learning power</Text>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.historyBtn}>
+          <Text style={styles.historyBtnText}>🕐 History</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Balance Card */}
       <View style={styles.balanceCard}>
-        <View style={styles.balanceLeft}>
-          <Text style={styles.balanceLabel}>CURRENT BALANCE</Text>
-          <Text style={styles.balanceNum}>
-            {balance} <Text style={styles.balanceIcon}>🪙</Text>
-          </Text>
-          <Text style={styles.balanceHint}>
-            Enough for {balance} minutes of content
-          </Text>
+        <View style={styles.balanceRow}>
+          <View>
+            <Text style={styles.balanceLabel}>Your Balance</Text>
+            <Text style={styles.balanceAmount}>
+              {balance}
+              <Text style={styles.balanceUnit}> Tokens</Text>
+            </Text>
+            <View style={styles.balancePill}>
+              <Text style={styles.balancePillText}>
+                🪙 ≈ KES {kesEq.toFixed(2)} ⓘ
+              </Text>
+            </View>
+          </View>
+          <View style={styles.balanceGraphic}>
+            <Text style={styles.balanceGraphicIcon}>🛡️</Text>
+          </View>
         </View>
-        <View style={styles.balanceRight}>
-          <Text style={styles.balanceKes}>= KES {balance}</Text>
-          <Text style={styles.balanceRate}>1 token = 1 KES</Text>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <View style={[styles.statIconBox, { backgroundColor: '#13335c' }]}>
+              <Text style={styles.statIconText}>💳</Text>
+            </View>
+            <View>
+              <Text style={styles.statLabel}>Total Spent</Text>
+              <Text style={styles.statValue}>{stats?.total_spent ?? 0} Tokens</Text>
+            </View>
+          </View>
+          <View style={styles.statItem}>
+            <View style={[styles.statIconBox, { backgroundColor: '#3b235c' }]}>
+              <Text style={styles.statIconText}>📚</Text>
+            </View>
+            <View>
+              <Text style={styles.statLabel}>Courses Enrolled</Text>
+              <Text style={styles.statValue}>{stats?.courses_enrolled ?? 0} Courses</Text>
+            </View>
+          </View>
+          <View style={styles.statItem}>
+            <View style={[styles.statIconBox, { backgroundColor: '#10381f' }]}>
+              <Text style={styles.statIconText}>📊</Text>
+            </View>
+            <View>
+              <Text style={styles.statLabel}>Lessons Completed</Text>
+              <Text style={styles.statValue}>{stats?.lessons_completed ?? 0} Lessons</Text>
+            </View>
+          </View>
         </View>
       </View>
 
-      {/* C2B Info */}
-      <View style={styles.c2bCard}>
-        <Text style={styles.c2bTitle}>📲 SEND DIRECTLY VIA M-PESA</Text>
-        <Text style={styles.c2bText}>
-          Send any amount to our Paybill/Till and tokens will be added automatically!
-        </Text>
-        <View style={styles.c2bDetails}>
-          <View style={styles.c2bItem}>
-            <Text style={styles.c2bLabel}>PAYBILL/TILL</Text>
-            <Text style={styles.c2bValue}>{'7809404'}</Text>
-          </View>
-          <View style={styles.c2bItem}>
-            <Text style={styles.c2bLabel}>ACCOUNT REF</Text>
-            <Text style={styles.c2bValue}>{username || 'your_username'}</Text>
-          </View>
+      {/* Section heading */}
+      <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle}>Choose a Token Package</Text>
+        <View style={styles.bestValueBadge}>
+          <Text style={styles.bestValueText}>⭐ Best Value</Text>
         </View>
-        <Text style={styles.c2bNote}>
-          ⚠️ Use your username as the account reference
-        </Text>
       </View>
 
       {/* Packages */}
-      <Text style={styles.sectionTitle}>// SELECT PACKAGE</Text>
+      <View style={styles.packages}>
+        {packages.map((pkg) => (
+          <PackageCard
+            key={pkg.id}
+            pkg={pkg}
+            tierStyle={TIER_STYLES[pkg.tier] || TIER_STYLES.purple}
+            onBuy={handleBuy}
+          />
+        ))}
+      </View>
 
-      {loading ? (
-        <ActivityIndicator color={COLORS.green} style={{ marginTop: 40 }} />
-      ) : packages.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>🪙</Text>
-          <Text style={styles.emptyText}>No packages available</Text>
-        </View>
-      ) : (
-        <View style={{ paddingHorizontal: 16 }}>
-          {packages.map((pkg, i) => (
-            <TokenCard
-              key={pkg.id}
-              pkg={pkg}
-              index={i}
-              onBuyMpesa={handleBuyMpesa}
-              onBuyPaypal={handleBuyPaypal}
-            />
+      {/* Pay with */}
+      <View style={styles.payCard}>
+        <Text style={styles.payCardTitle}>Pay with</Text>
+        <View style={styles.payMethods}>
+          {PAY_METHODS.map((m) => (
+            <TouchableOpacity
+              key={m.id}
+              style={[
+                styles.payMethod,
+                selectedMethod === m.id && styles.payMethodSelected,
+              ]}
+              onPress={() => setSelectedMethod(m.id)}
+            >
+              <View style={[styles.payMethodPic, { backgroundColor: m.color }]}>
+                <Text style={styles.payMethodPicText}>{m.initial}</Text>
+              </View>
+              <Text style={styles.payMethodLabel}>{m.label}</Text>
+            </TouchableOpacity>
           ))}
         </View>
-      )}
+      </View>
 
-      {/* Transaction History */}
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>
-        // TRANSACTION HISTORY
-      </Text>
-
-      {transactions.length === 0 ? (
-        <View style={styles.noTransactions}>
-          <Text style={styles.noTransText}>No transactions yet</Text>
-        </View>
-      ) : (
-        <View style={styles.transactionList}>
-          {transactions.map((t, i) => (
-            <View key={i} style={styles.transaction}>
-              <View style={styles.transactionLeft}>
-                <Text style={styles.transactionIcon}>
-                  {t.status === 'success' ? '✅' : t.status === 'failed' ? '❌' : '⏳'}
-                </Text>
-                <View>
-                  <Text style={styles.transactionDesc}>
-                    KES {t.amount} → {t.tokens} tokens
-                  </Text>
-                  <Text style={styles.transactionDate}>
-                    {new Date(t.created_at).toLocaleDateString()}
-                  </Text>
-                  {t.mpesa_receipt ? (
-                    <Text style={styles.transactionReceipt}>
-                      Receipt: {t.mpesa_receipt}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-              <View style={[
-                styles.transactionBadge,
-                { backgroundColor: t.status === 'success' ? COLORS.green + '22' : COLORS.red + '22' }
-              ]}>
-                <Text style={[
-                  styles.transactionStatus,
-                  { color: t.status === 'success' ? COLORS.green : t.status === 'failed' ? COLORS.red : COLORS.amber }
-                ]}>
-                  {t.status.toUpperCase()}
-                </Text>
-              </View>
+      {/* Why tokens */}
+      <View style={styles.whyCard}>
+        <Text style={styles.whyTitle}>Why tokens?</Text>
+        <Text style={styles.whyDesc}>
+          Tokens give you access to premium courses, lessons and AI learning tools on SCI LEARN.
+        </Text>
+        <View style={styles.whyList}>
+          <View style={styles.whyItem}>
+            <View style={[styles.whyIcon, { borderColor: COLORS.green }]}>
+              <Text style={styles.whyIconText}>🔒</Text>
             </View>
-          ))}
-        </View>
-      )}
-
-      <Text style={styles.footer}>Developed by: 💞🙏 Engineer Joe 🇰🇪</Text>
-
-      {/* M-PESA Payment Modal */}
-      <Modal
-        visible={showPhoneModal}
-        transparent
-        animationType="slide"
-        onRequestClose={closeModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalFlagBar}>
-                <View style={[styles.flagStripe, { backgroundColor: COLORS.black }]} />
-                <View style={[styles.flagStripe, { backgroundColor: COLORS.red }]} />
-                <View style={[styles.flagStripe, { backgroundColor: COLORS.green }]} />
-              </View>
-              <View style={styles.modalTitleRow}>
-                <Text style={styles.modalTitle}>📱 M-PESA PAYMENT</Text>
-                <TouchableOpacity onPress={closeModal} style={styles.closeBtn}>
-                  <Text style={styles.closeBtnText}>✕</Text>
-                </TouchableOpacity>
-              </View>
+            <Text style={styles.whyItemTitle}>Secure</Text>
+            <Text style={styles.whyItemDesc}>100% safe payments</Text>
+          </View>
+          <View style={styles.whyItem}>
+            <View style={[styles.whyIcon, { borderColor: COLORS.blue }]}>
+              <Text style={styles.whyIconText}>⚡</Text>
             </View>
-
-            {/* Package Summary */}
-            {selectedPackage && (
-              <View style={styles.packageSummary}>
-                <Text style={styles.summaryLabel}>PAYING FOR:</Text>
-                <Text style={styles.summaryTokens}>
-                  {selectedPackage.amount} 🪙 TOKENS
-                </Text>
-                <Text style={styles.summaryAmount}>
-                  KES {selectedPackage.price_kes}
-                </Text>
-              </View>
-            )}
-
-            {/* Payment Status or Phone Input */}
-            {paymentStatus ? renderPaymentStatus() : (
-              <View style={styles.phoneSection}>
-                <Text style={styles.phoneLabel}>M-PESA PHONE NUMBER</Text>
-                <TextInput
-                  style={styles.phoneInput}
-                  value={phoneInput}
-                  onChangeText={setPhoneInput}
-                  placeholder="0712345678"
-                  placeholderTextColor={COLORS.textDim}
-                  keyboardType="phone-pad"
-                  maxLength={13}
-                />
-                <Text style={styles.phoneHint}>
-                  Format: 0712345678 or +254712345678
-                </Text>
-
-                <TouchableOpacity
-                  style={[styles.payBtn, paymentLoading && { opacity: 0.7 }]}
-                  onPress={initiatePayment}
-                  disabled={paymentLoading}
-                >
-                  {paymentLoading ? (
-                    <ActivityIndicator color={COLORS.white} />
-                  ) : (
-                    <Text style={styles.payBtnText}>
-                      💚 PAY KES {selectedPackage?.price_kes} NOW
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                <Text style={styles.secureText}>
-                  🔒 Secured by Safaricom M-PESA Daraja API
-                </Text>
-              </View>
-            )}
+            <Text style={styles.whyItemTitle}>Instant</Text>
+            <Text style={styles.whyItemDesc}>Get tokens instantly</Text>
+          </View>
+          <View style={styles.whyItem}>
+            <View style={[styles.whyIcon, { borderColor: COLORS.purple }]}>
+              <Text style={styles.whyIconText}>🎓</Text>
+            </View>
+            <Text style={styles.whyItemTitle}>Learn More</Text>
+            <Text style={styles.whyItemDesc}>Unlock premium content</Text>
           </View>
         </View>
-      </Modal>
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>🛡 All payments are secure and encrypted</Text>
+        <Text style={styles.footerText}>Need help? <Text style={{ color: COLORS.green }}>Contact Support</Text></Text>
+      </View>
 
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  flagBanner: { flexDirection: 'row', height: 6 },
-  flagStripe: { flex: 1 },
+  screen: { flex: 1, backgroundColor: COLORS.bg },
+  loadingContainer: {
+    flex: 1, backgroundColor: COLORS.bg,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  loadingText: { color: COLORS.green, marginTop: 16, letterSpacing: 2, fontWeight: '700' },
   header: {
-    padding: 24, paddingTop: 32,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 50, paddingBottom: 18,
   },
-  tag: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 6,
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
+  backBtn: {
+    width: 42, height: 42, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: '#0f1318', alignItems: 'center', justifyContent: 'center',
   },
-  title: {
-    color: COLORS.green, fontSize: 28,
-    fontWeight: '900', fontFamily: 'monospace',
+  backBtnText: { color: '#fff', fontSize: 22 },
+  title: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  subtitle: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
+  historyBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#0f1318',
   },
-  subtitle: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 12, marginTop: 4,
-  },
+  historyBtnText: { fontSize: 12, color: '#e5e7eb' },
   balanceCard: {
-    margin: 16, borderWidth: 1,
-    borderColor: COLORS.green, borderLeftWidth: 4,
-    borderLeftColor: COLORS.green,
-    backgroundColor: COLORS.surfaceGreen,
-    padding: 20, flexDirection: 'row',
-    justifyContent: 'space-between', alignItems: 'center',
+    marginHorizontal: 18, marginBottom: 22, borderWidth: 1, borderColor: '#1f3d27',
+    borderRadius: 22, backgroundColor: '#0d1f14', paddingHorizontal: 20, paddingTop: 22,
+    overflow: 'hidden',
   },
-  balanceLeft: { flex: 1 },
-  balanceLabel: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 8,
+  balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  balanceLabel: { color: COLORS.muted, fontSize: 13, marginBottom: 6 },
+  balanceAmount: { fontSize: 44, fontWeight: '900', color: '#fff' },
+  balanceUnit: { fontSize: 18, color: COLORS.green, fontWeight: '700' },
+  balancePill: {
+    alignSelf: 'flex-start', backgroundColor: '#143620', borderWidth: 1, borderColor: '#1f5c33',
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginTop: 14,
   },
-  balanceNum: {
-    color: COLORS.green, fontSize: 44,
-    fontWeight: '900', fontFamily: 'monospace',
+  balancePillText: { color: COLORS.green, fontSize: 12, fontWeight: '700' },
+  balanceGraphic: {
+    width: 80, height: 80, borderRadius: 40, backgroundColor: '#0f2f1a',
+    borderWidth: 1, borderColor: COLORS.green, alignItems: 'center', justifyContent: 'center',
   },
-  balanceIcon: { fontSize: 28 },
-  balanceHint: {
-    color: COLORS.textDim, fontSize: 10,
-    fontFamily: 'monospace', marginTop: 4,
+  balanceGraphicIcon: { fontSize: 36 },
+  statsRow: {
+    flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1,
+    borderTopColor: '#15291b', marginTop: 18, paddingVertical: 16, gap: 8,
   },
-  balanceRight: { alignItems: 'flex-end' },
-  balanceKes: {
-    color: COLORS.amber, fontFamily: 'monospace',
-    fontSize: 14, fontWeight: '700',
-  },
-  balanceRate: {
-    color: COLORS.textDim, fontFamily: 'monospace', fontSize: 10,
-  },
-  c2bCard: {
-    marginHorizontal: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: COLORS.blue,
-    borderLeftWidth: 4, borderLeftColor: COLORS.blue,
-    backgroundColor: COLORS.surfaceBlue, padding: 16,
-  },
-  c2bTitle: {
-    color: COLORS.blue, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 12,
-    letterSpacing: 1, marginBottom: 8,
-  },
-  c2bText: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 12, lineHeight: 20, marginBottom: 12,
-  },
-  c2bDetails: {
-    flexDirection: 'row', gap: 16, marginBottom: 8,
-  },
-  c2bItem: {
-    flex: 1, borderWidth: 1,
-    borderColor: COLORS.borderBlue, padding: 10,
-    backgroundColor: COLORS.bg,
-  },
-  c2bLabel: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 9, letterSpacing: 2, marginBottom: 4,
-  },
-  c2bValue: {
-    color: COLORS.blue, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 14,
-  },
-  c2bNote: {
-    color: COLORS.amber, fontFamily: 'monospace', fontSize: 10,
+  statItem: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  statIconBox: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  statIconText: { fontSize: 13 },
+  statLabel: { fontSize: 9, color: COLORS.muted },
+  statValue: { fontSize: 11.5, fontWeight: '700', color: '#fff', marginTop: 1 },
+  sectionHeading: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, marginBottom: 12,
   },
   sectionTitle: {
-    color: COLORS.textDim, fontSize: 10,
-    letterSpacing: 3, fontFamily: 'monospace',
-    paddingHorizontal: 16, marginBottom: 12,
+    fontSize: 16, fontWeight: '800', color: '#fff', paddingLeft: 10,
+    borderLeftWidth: 3, borderLeftColor: COLORS.green,
   },
-  popularBadge: {
-    backgroundColor: COLORS.red,
-    paddingHorizontal: 12, paddingVertical: 4,
-    alignSelf: 'flex-start', marginLeft: 16,
+  bestValueBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#143620',
+    borderWidth: 1, borderColor: '#1f5c33', borderRadius: 14, paddingHorizontal: 11, paddingVertical: 5,
   },
-  popularText: {
-    color: COLORS.white, fontSize: 10,
-    fontFamily: 'monospace', fontWeight: '700', letterSpacing: 1,
+  bestValueText: { color: COLORS.green, fontSize: 11, fontWeight: '700' },
+  packages: { paddingHorizontal: 18, gap: 14, marginBottom: 8 },
+  pkgCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: 18, padding: 16, borderWidth: 1,
   },
-  tokenCard: {
-    borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-    marginBottom: 12, overflow: 'hidden',
+  pkgLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
+  pkgIcon: {
+    width: 62, height: 62, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
   },
-  tokenCardPopular: {
-    borderColor: COLORS.red, borderWidth: 2,
+  pkgIconText: { fontSize: 28 },
+  pkgBadge: {
+    position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
   },
-  tokenCardTop: {
-    padding: 20,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  pkgBadgeText: { fontSize: 11 },
+  pkgName: { fontSize: 17, fontWeight: '800', color: '#fff' },
+  pkgSub: { fontSize: 11, color: COLORS.muted, marginVertical: 4 },
+  bonusTag: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 },
+  bonusTagText: { fontSize: 10.5, fontWeight: '700' },
+  pkgRight: { alignItems: 'flex-end' },
+  pkgPrice: { fontSize: 15.5, fontWeight: '800' },
+  pkgUsd: { fontSize: 10.5, color: COLORS.muted, marginVertical: 4 },
+  buyBtn: { borderRadius: 10, paddingHorizontal: 18, paddingVertical: 9, marginTop: 4 },
+  buyBtnText: { color: '#fff', fontWeight: '700', fontSize: 12.5 },
+  payCard: {
+    marginHorizontal: 18, marginTop: 22, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 18, padding: 18, backgroundColor: '#0e1217',
   },
-  tokenAmount: {
-    color: COLORS.green, fontSize: 36,
-    fontWeight: '900', fontFamily: 'monospace',
+  payCardTitle: { fontSize: 14, fontWeight: '700', color: '#e5e7eb', marginBottom: 14 },
+  payMethods: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  payMethod: {
+    width: '47%', flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 11,
   },
-  tokenUnit: {
-    color: COLORS.textDim, fontSize: 11,
-    letterSpacing: 2, fontFamily: 'monospace',
+  payMethodSelected: { borderColor: COLORS.green, backgroundColor: '#0d1a10' },
+  payMethodPic: {
+    width: 24, height: 18, borderRadius: 4, alignItems: 'center', justifyContent: 'center',
   },
-  tokenPrice: {
-    color: COLORS.amber, fontSize: 20,
-    fontFamily: 'monospace', fontWeight: '700', marginTop: 8,
+  payMethodPicText: { color: '#fff', fontSize: 9, fontWeight: '900' },
+  payMethodLabel: { fontSize: 12, color: '#fff', fontWeight: '600' },
+  whyCard: {
+    marginHorizontal: 18, marginTop: 18, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 18, padding: 18, backgroundColor: '#0e1217', marginBottom: 16,
   },
-  tokenValue: {
-    color: COLORS.textDim, fontSize: 10,
-    fontFamily: 'monospace', marginTop: 4,
+  whyTitle: { color: COLORS.green, fontSize: 14.5, fontWeight: '700', marginBottom: 10 },
+  whyDesc: { fontSize: 13, color: '#cbd5e1', lineHeight: 19, marginBottom: 18 },
+  whyList: { flexDirection: 'row', justifyContent: 'space-between' },
+  whyItem: { alignItems: 'center', width: '30%', gap: 8 },
+  whyIcon: {
+    width: 38, height: 38, borderRadius: 19, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
   },
-  tokenCardButtons: {
-    flexDirection: 'row',
-  },
-  buyBtn: {
-    flex: 1, borderWidth: 1,
-    padding: 14, alignItems: 'center',
-    borderTopWidth: 0, borderBottomWidth: 0,
-    borderLeftWidth: 0,
-  },
-  buyBtnIcon: { fontSize: 20, marginBottom: 4 },
-  buyBtnText: {
-    fontFamily: 'monospace', fontSize: 12,
-    fontWeight: '700', letterSpacing: 1,
-  },
-  buyBtnSub: {
-    fontFamily: 'monospace', fontSize: 9,
-    letterSpacing: 1, marginTop: 2,
-  },
-  transactionList: {
-    marginHorizontal: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  transaction: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', padding: 14,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  transactionLeft: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1,
-  },
-  transactionIcon: { fontSize: 20 },
-  transactionDesc: {
-    color: COLORS.text, fontFamily: 'monospace', fontSize: 13,
-  },
-  transactionDate: {
-    color: COLORS.textDim, fontFamily: 'monospace', fontSize: 10,
-    marginTop: 2,
-  },
-  transactionReceipt: {
-    color: COLORS.textDim, fontFamily: 'monospace', fontSize: 9,
-    marginTop: 2,
-  },
-  transactionBadge: {
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
-  transactionStatus: {
-    fontFamily: 'monospace', fontWeight: '700', fontSize: 10,
-    letterSpacing: 1,
-  },
-  noTransactions: {
-    marginHorizontal: 16, padding: 20,
-    borderWidth: 1, borderColor: COLORS.border,
-    alignItems: 'center',
-  },
-  noTransText: {
-    color: COLORS.textDim, fontFamily: 'monospace', fontSize: 12,
-  },
-  empty: {
-    alignItems: 'center', padding: 40,
-  },
-  emptyIcon: { fontSize: 48, marginBottom: 16 },
-  emptyText: {
-    color: COLORS.white, fontSize: 16, fontFamily: 'monospace',
-  },
+  whyIconText: { fontSize: 16 },
+  whyItemTitle: { fontSize: 12.5, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  whyItemDesc: { fontSize: 10, color: COLORS.muted, textAlign: 'center' },
   footer: {
-    textAlign: 'center', color: COLORS.textDim,
-    fontSize: 11, margin: 32, fontFamily: 'monospace',
+    flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap',
+    marginTop: 8, marginBottom: 30, paddingHorizontal: 20, gap: 6,
   },
-
-  // Modal Styles
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: COLORS.bg,
-    borderTopWidth: 1, borderTopColor: COLORS.border,
-    minHeight: 400,
-  },
-  modalFlagBar: { flexDirection: 'row', height: 6 },
-  modalHeader: { overflow: 'hidden' },
-  modalTitleRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', padding: 20,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  modalTitle: {
-    color: COLORS.green, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 16, letterSpacing: 2,
-  },
-  closeBtn: {
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 8, paddingHorizontal: 12,
-  },
-  closeBtnText: {
-    color: COLORS.textDim, fontFamily: 'monospace', fontSize: 14,
-  },
-  packageSummary: {
-    padding: 16, borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surfaceGreen,
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 10, letterSpacing: 3,
-  },
-  summaryTokens: {
-    color: COLORS.green, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 24, marginTop: 4,
-  },
-  summaryAmount: {
-    color: COLORS.amber, fontFamily: 'monospace',
-    fontWeight: '700', fontSize: 18,
-  },
-  phoneSection: { padding: 20 },
-  phoneLabel: {
-    color: COLORS.textDim, fontSize: 11,
-    letterSpacing: 3, fontFamily: 'monospace', marginBottom: 8,
-  },
-  phoneInput: {
-    borderWidth: 1, borderColor: COLORS.border,
-    color: COLORS.text, padding: 14,
-    fontFamily: 'monospace', fontSize: 18,
-    backgroundColor: COLORS.surface, marginBottom: 8,
-    letterSpacing: 2,
-  },
-  phoneHint: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 10, marginBottom: 20,
-  },
-  payBtn: {
-    backgroundColor: COLORS.green,
-    padding: 18, alignItems: 'center',
-    borderBottomWidth: 4, borderBottomColor: COLORS.greenLight,
-  },
-  payBtnText: {
-    color: COLORS.white, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 16, letterSpacing: 2,
-  },
-  secureText: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 10, textAlign: 'center', marginTop: 12,
-  },
-
-  // Status Styles
-  statusBox: {
-    padding: 32, alignItems: 'center',
-  },
-  statusIcon: { fontSize: 56, marginBottom: 16 },
-  statusText: {
-    color: COLORS.white, fontFamily: 'monospace',
-    fontWeight: '900', fontSize: 16, letterSpacing: 2,
-    textAlign: 'center',
-  },
-  statusSub: {
-    color: COLORS.textDim, fontFamily: 'monospace',
-    fontSize: 12, textAlign: 'center',
-    marginTop: 8, lineHeight: 20,
-  },
-  pollingRow: {
-    flexDirection: 'row', alignItems: 'center', marginTop: 16,
-  },
-  pollingText: {
-    color: COLORS.green, fontFamily: 'monospace', fontSize: 12,
-  },
-  doneBtn: {
-    marginTop: 20, backgroundColor: COLORS.green,
-    paddingVertical: 14, paddingHorizontal: 40,
-  },
-  doneBtnText: {
-    color: COLORS.white, fontFamily: 'monospace',
-    fontWeight: '900', letterSpacing: 3,
-  },
-  retryBtn: {
-    marginTop: 20, borderWidth: 1,
-    borderColor: COLORS.green,
-    paddingVertical: 14, paddingHorizontal: 40,
-  },
-  retryBtnText: {
-    color: COLORS.green, fontFamily: 'monospace',
-    fontWeight: '900', letterSpacing: 3,
-  },
+  footerText: { fontSize: 11, color: COLORS.muted },
 });
