@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, ActivityIndicator, Platform, Alert,
+  TouchableOpacity, ActivityIndicator, Platform, Alert, Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -22,46 +22,25 @@ const TABS = ['All', 'System', 'Updates', 'Promotions'];
 
 const TYPE_CONFIG = {
   system: {
-    icon: '🔔',
-    iconBg: '#0d1730',
-    iconBorder: '#1e3560',
-    dotColor: COLORS.blue,
+    icon: '🔔', iconBg: '#0d1730', iconBorder: '#1e3560', dotColor: COLORS.blue,
   },
   reward: {
-    icon: '🔥',
-    iconBg: '#0d2215',
-    iconBorder: '#1a4028',
-    dotColor: COLORS.green,
+    icon: '🔥', iconBg: '#0d2215', iconBorder: '#1a4028', dotColor: COLORS.green,
   },
   token_topup: {
-    icon: '🪙',
-    iconBg: '#1a0d33',
-    iconBorder: '#3a1f6b',
-    dotColor: COLORS.purple,
+    icon: '🪙', iconBg: '#1a0d33', iconBorder: '#3a1f6b', dotColor: COLORS.purple,
   },
   referral: {
-    icon: '🎁',
-    iconBg: '#0d2215',
-    iconBorder: '#1a4028',
-    dotColor: COLORS.green,
+    icon: '🎁', iconBg: '#0d2215', iconBorder: '#1a4028', dotColor: COLORS.green,
   },
   certificate: {
-    icon: '🏆',
-    iconBg: '#1f1606',
-    iconBorder: '#4a3008',
-    dotColor: COLORS.gold,
+    icon: '🏆', iconBg: '#1f1606', iconBorder: '#4a3008', dotColor: COLORS.gold,
   },
   course_unlock: {
-    icon: '🔓',
-    iconBg: '#1a0d33',
-    iconBorder: '#3a1f6b',
-    dotColor: COLORS.purple,
+    icon: '🔓', iconBg: '#1a0d33', iconBorder: '#3a1f6b', dotColor: COLORS.purple,
   },
   welcome: {
-    icon: '👋',
-    iconBg: '#0d1730',
-    iconBorder: '#1e3560',
-    dotColor: COLORS.blue,
+    icon: '👋', iconBg: '#0d1730', iconBorder: '#1e3560', dotColor: COLORS.blue,
   },
 };
 
@@ -124,6 +103,10 @@ export default function NotificationsScreen({ navigation }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [username, setUsername] = useState('');
 
+  // Popup modal state
+  const [selectedNotif, setSelectedNotif] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
   const getUserData = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
     return await AsyncStorage.getItem('scibase_user');
@@ -158,6 +141,11 @@ export default function NotificationsScreen({ navigation }) {
   }, [activeTab]);
 
   const handlePressItem = async (item) => {
+    // Show popup
+    setSelectedNotif(item);
+    setModalVisible(true);
+
+    // Mark as read in background
     if (!item.is_read) {
       try {
         await fetch(
@@ -171,22 +159,27 @@ export default function NotificationsScreen({ navigation }) {
             body: JSON.stringify({ notification_id: item.id }),
           }
         );
-        setToday(p => p.map(n => n.id === item.id ? { ...n, is_read: true } : n));
-        setYesterday(p => p.map(n => n.id === item.id ? { ...n, is_read: true } : n));
-        setEarlier(p => p.map(n => n.id === item.id ? { ...n, is_read: true } : n));
+        const markRead = arr =>
+          arr.map(n => n.id === item.id ? { ...n, is_read: true } : n);
+        setToday(markRead);
+        setYesterday(markRead);
+        setEarlier(markRead);
         setUnreadCount(c => Math.max(0, c - 1));
+        setSelectedNotif(prev => prev ? { ...prev, is_read: true } : prev);
       } catch {}
     }
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedNotif(null);
   };
 
   const markAllRead = async () => {
     try {
       await fetch(
         'https://scilearnbackend.onrender.com/api/notifications/mark-all-read/',
-        {
-          method: 'POST',
-          headers: { 'X-Username': username },
-        }
+        { method: 'POST', headers: { 'X-Username': username } }
       );
       const markAll = arr => arr.map(n => ({ ...n, is_read: true }));
       setToday(markAll);
@@ -211,10 +204,7 @@ export default function NotificationsScreen({ navigation }) {
             try {
               await fetch(
                 'https://scilearnbackend.onrender.com/api/notifications/clear-all/',
-                {
-                  method: 'POST',
-                  headers: { 'X-Username': username },
-                }
+                { method: 'POST', headers: { 'X-Username': username } }
               );
               setToday([]);
               setYesterday([]);
@@ -229,11 +219,21 @@ export default function NotificationsScreen({ navigation }) {
     );
   };
 
-  const isEmpty = today.length === 0 && yesterday.length === 0 && earlier.length === 0;
+  const isEmpty =
+    today.length === 0 &&
+    yesterday.length === 0 &&
+    earlier.length === 0;
+
+  const cfg = selectedNotif
+    ? getTypeConfig(selectedNotif.type, selectedNotif.title)
+    : null;
 
   return (
     <View style={styles.screen}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 90 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 90 }}
+      >
 
         {/* Header */}
         <View style={styles.header}>
@@ -249,9 +249,14 @@ export default function NotificationsScreen({ navigation }) {
                 </View>
               )}
             </View>
-            <Text style={styles.headerSub}>Stay updated with your learning journey</Text>
+            <Text style={styles.headerSub}>
+              Stay updated with your learning journey
+            </Text>
           </View>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Theme')}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => navigation.navigate('Theme')}
+          >
             <Text style={styles.iconBtnText}>⚙️</Text>
           </TouchableOpacity>
         </View>
@@ -307,6 +312,65 @@ export default function NotificationsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Notification Pop-up Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeModal}
+        statusBarTranslucent
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={closeModal}
+        >
+          <TouchableOpacity
+            style={styles.modalBox}
+            activeOpacity={1}
+            onPress={() => {}}
+          >
+            {selectedNotif && cfg && (
+              <>
+                {/* Icon */}
+                <View style={[styles.modalIconBox, {
+                  backgroundColor: cfg.iconBg,
+                  borderColor: cfg.dotColor,
+                }]}>
+                  <Text style={styles.modalIconText}>{cfg.icon}</Text>
+                </View>
+
+                {/* Title */}
+                <Text style={styles.modalTitle}>{selectedNotif.title}</Text>
+
+                {/* Time */}
+                <Text style={styles.modalTime}>{selectedNotif.time_display}</Text>
+
+                {/* Divider */}
+                <View style={styles.modalDivider} />
+
+                {/* Message */}
+                <ScrollView
+                  style={styles.modalMessageScroll}
+                  showsVerticalScrollIndicator={false}
+                >
+                  <Text style={styles.modalMessage}>{selectedNotif.message}</Text>
+                </ScrollView>
+
+                {/* Close Button */}
+                <TouchableOpacity
+                  style={[styles.modalCloseBtn, { backgroundColor: cfg.dotColor }]}
+                  onPress={closeModal}
+                >
+                  <Text style={styles.modalCloseBtnText}>CLOSE</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
     </View>
   );
 }
@@ -337,13 +401,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#0e141b', borderWidth: 1, borderColor: COLORS.border,
     borderRadius: 14, padding: 5, gap: 2,
   },
-  tab: {
-    flex: 1, alignItems: 'center', paddingVertical: 10,
-    borderRadius: 10,
-  },
-  tabActive: {
-    backgroundColor: '#13201a', borderWidth: 1, borderColor: '#1e3d28',
-  },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
+  tabActive: { backgroundColor: '#13201a', borderWidth: 1, borderColor: '#1e3d28' },
   tabText: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
   tabTextActive: { color: COLORS.green },
   tabDot: {
@@ -351,9 +410,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.green, marginTop: 4,
   },
   loadingBox: { paddingTop: 60, alignItems: 'center' },
-  emptyBox: {
-    paddingTop: 60, paddingHorizontal: 32, alignItems: 'center',
-  },
+  emptyBox: { paddingTop: 60, paddingHorizontal: 32, alignItems: 'center' },
   emptyIcon: { fontSize: 48, marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: '#fff', marginBottom: 8 },
   emptySub: { fontSize: 13, color: COLORS.muted, textAlign: 'center', lineHeight: 20 },
@@ -394,4 +451,51 @@ const styles = StyleSheet.create({
   clearAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   clearAllText: { color: COLORS.red, fontSize: 13, fontWeight: '600' },
   clearAllIcon: { fontSize: 14 },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  modalBox: {
+    width: '100%',
+    backgroundColor: '#12171e',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#1c2530',
+    padding: 24,
+    alignItems: 'center',
+    maxHeight: '80%',
+  },
+  modalIconBox: {
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 2, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 16,
+  },
+  modalIconText: { fontSize: 32 },
+  modalTitle: {
+    fontSize: 20, fontWeight: '900', color: '#fff',
+    textAlign: 'center', marginBottom: 6,
+  },
+  modalTime: {
+    fontSize: 12, color: COLORS.muted, marginBottom: 16,
+  },
+  modalDivider: {
+    width: '100%', height: 1,
+    backgroundColor: '#1c2530', marginBottom: 16,
+  },
+  modalMessageScroll: { width: '100%', maxHeight: 200, marginBottom: 20 },
+  modalMessage: {
+    fontSize: 14, color: '#cbd5e1', lineHeight: 22, textAlign: 'center',
+  },
+  modalCloseBtn: {
+    width: '100%', borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#000', fontWeight: '900', fontSize: 13, letterSpacing: 1,
+  },
 });
