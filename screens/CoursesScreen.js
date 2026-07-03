@@ -2,21 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, TextInput, ActivityIndicator,
-  Animated, Dimensions
+  Animated, Dimensions, Platform
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import AppScreenContainer from '../components/AppScreenContainer';
 
 const { width } = Dimensions.get('window');
-
-const CATEGORY_FALLBACK_ICONS = {
-  'Cyber Security': '🛡️',
-  'Programming': '</>',
-  'Data Analysis': '📊',
-  'Networking': '📡',
-  'Linux': '🐧',
-  'AI & ML': '🤖',
-};
 
 function AnimatedCard({ children, style, delay = 0 }) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -52,8 +44,6 @@ export default function CoursesScreen({ navigation, route }) {
   }, []);
 
   const getUserData = async () => {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    const { Platform } = require('react-native');
     if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
     return await AsyncStorage.getItem('scibase_user');
   };
@@ -69,11 +59,14 @@ export default function CoursesScreen({ navigation, route }) {
         username = parsed.username;
       }
 
-      const catRes = await fetch('https://scilearnbackend.onrender.com/api/courses/categories/');
+      const [catRes, courseRes] = await Promise.all([
+        fetch('https://scilearnbackend.onrender.com/api/courses/categories/'),
+        fetch('https://scilearnbackend.onrender.com/api/courses/'),
+      ]);
+
       const catData = await catRes.json();
       if (catRes.ok) setCategories(catData.categories || []);
 
-      const courseRes = await fetch('https://scilearnbackend.onrender.com/api/courses/');
       const courseData = await courseRes.json();
       if (courseRes.ok) setAllCourses(courseData.courses || []);
 
@@ -102,19 +95,28 @@ export default function CoursesScreen({ navigation, route }) {
 
   const featured = allCourses.slice(0, 4);
   const popular = allCourses.slice(0, 4);
-  const trending = allCourses;
+
+  const openCourse = (courseId) => {
+    navigation.navigate('CourseDetail', { courseId });
+  };
 
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.bg }]}>
         <ActivityIndicator color={colors.green} size="large" />
-        <Text style={[styles.loadingText, { color: colors.green }]}>LOADING COURSES...</Text>
+        <Text style={[styles.loadingText, { color: colors.green }]}>
+          LOADING COURSES...
+        </Text>
       </View>
     );
   }
 
   return (
-    <AppScreenContainer navigation={navigation} user={user} style={{ backgroundColor: colors.bg }}>
+    <AppScreenContainer
+      navigation={navigation}
+      user={user}
+      style={{ backgroundColor: colors.bg }}
+    >
       {({ openDrawer }) => (
         <View style={[styles.root, { backgroundColor: colors.bg }]}>
           <ScrollView
@@ -127,7 +129,10 @@ export default function CoursesScreen({ navigation, route }) {
             <AnimatedCard>
               <View style={styles.header}>
                 <TouchableOpacity
-                  style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  style={[styles.iconBtn, {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  }]}
                   onPress={openDrawer}
                 >
                   <Text style={styles.iconBtnText}>☰</Text>
@@ -144,13 +149,18 @@ export default function CoursesScreen({ navigation, route }) {
 
                 <View style={styles.headerRight}>
                   <TouchableOpacity
-                    style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                    onPress={() => {}}
+                    style={[styles.iconBtn, {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    }]}
                   >
                     <Text style={styles.iconBtnText}>🔍</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    style={[styles.iconBtn, {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    }]}
                     onPress={() => navigation.navigate('Notifications')}
                   >
                     <Text style={styles.iconBtnText}>🔔</Text>
@@ -173,7 +183,10 @@ export default function CoursesScreen({ navigation, route }) {
             {/* Search */}
             <AnimatedCard delay={50}>
               <View style={styles.searchRow}>
-                <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.searchBox, {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                }]}>
                   <Text style={styles.searchIcon}>🔍</Text>
                   <TextInput
                     style={[styles.searchInput, { color: colors.text }]}
@@ -183,7 +196,10 @@ export default function CoursesScreen({ navigation, route }) {
                     onChangeText={setSearch}
                   />
                 </View>
-                <TouchableOpacity style={[styles.filterBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <TouchableOpacity style={[styles.filterBtn, {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                }]}>
                   <Text style={styles.filterIcon}>⚙️</Text>
                 </TouchableOpacity>
               </View>
@@ -200,7 +216,10 @@ export default function CoursesScreen({ navigation, route }) {
                   style={[
                     styles.pill,
                     { borderColor: colors.border, backgroundColor: colors.surface },
-                    activeCategory === 'all' && { borderColor: colors.green, backgroundColor: colors.surfaceGreen }
+                    activeCategory === 'all' && {
+                      borderColor: colors.green,
+                      backgroundColor: colors.surfaceGreen,
+                    }
                   ]}
                   onPress={() => setActiveCategory('all')}
                 >
@@ -216,7 +235,10 @@ export default function CoursesScreen({ navigation, route }) {
                     style={[
                       styles.pill,
                       { borderColor: colors.border, backgroundColor: colors.surface },
-                      activeCategory === cat.name && { borderColor: colors.green, backgroundColor: colors.surfaceGreen }
+                      activeCategory === cat.name && {
+                        borderColor: colors.green,
+                        backgroundColor: colors.surfaceGreen,
+                      }
                     ]}
                     onPress={() => setActiveCategory(cat.name)}
                   >
@@ -229,7 +251,10 @@ export default function CoursesScreen({ navigation, route }) {
                 ))}
 
                 <TouchableOpacity
-                  style={[styles.pill, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                  style={[styles.pill, {
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                  }]}
                 >
                   <Text style={styles.pillIcon}>▦</Text>
                   <Text style={[styles.pillText, { color: colors.text }]}>Others</Text>
@@ -245,40 +270,50 @@ export default function CoursesScreen({ navigation, route }) {
                   pagingEnabled
                   showsHorizontalScrollIndicator={false}
                   onMomentumScrollEnd={(e) => {
-                    const idx = Math.round(e.nativeEvent.contentOffset.x / (width - 32));
+                    const idx = Math.round(
+                      e.nativeEvent.contentOffset.x / (width - 32)
+                    );
                     setFeaturedIndex(idx);
                   }}
                   style={styles.featuredScroll}
                 >
                   {featured.map((course) => (
-                    <View
+                    <TouchableOpacity
                       key={course.id}
                       style={[styles.featuredCard, {
                         backgroundColor: colors.surface,
                         borderColor: colors.green,
                         width: width - 32,
                       }]}
+                      onPress={() => openCourse(course.id)}
+                      activeOpacity={0.9}
                     >
                       <View style={[styles.featuredBadge, { borderColor: colors.green }]}>
                         <Text style={[styles.featuredBadgeText, { color: colors.green }]}>
                           🛡️ FEATURED COURSE
                         </Text>
                       </View>
-                      <Text style={[styles.featuredTitle, { color: colors.white }]} numberOfLines={1}>
+                      <Text
+                        style={[styles.featuredTitle, { color: colors.white }]}
+                        numberOfLines={1}
+                      >
                         {course.title}
                       </Text>
-                      <Text style={[styles.featuredDesc, { color: colors.textDim }]} numberOfLines={2}>
+                      <Text
+                        style={[styles.featuredDesc, { color: colors.textDim }]}
+                        numberOfLines={2}
+                      >
                         {course.description}
                       </Text>
                       <View style={styles.featuredMetaRow}>
                         <Text style={[styles.featuredMeta, { color: colors.textDim }]}>
-                          📖 {course.lessons_count || 25} Lessons
-                        </Text>
-                        <Text style={[styles.featuredMeta, { color: colors.textDim }]}>
-                          🕐 4 Hours
+                          📖 {course.lessons_count || 0} Lessons
                         </Text>
                         <Text style={[styles.featuredMeta, { color: colors.amber }]}>
-                          ⭐ {course.rating} ({course.learners_count})
+                          ⭐ {course.rating}
+                        </Text>
+                        <Text style={[styles.featuredMeta, { color: colors.textDim }]}>
+                          👥 {course.learners_count}
                         </Text>
                       </View>
                       <View style={styles.featuredBottomRow}>
@@ -287,14 +322,11 @@ export default function CoursesScreen({ navigation, route }) {
                             🪙 {course.token_cost} Tokens
                           </Text>
                         </View>
-                        <TouchableOpacity
-                          style={[styles.startBtn, { backgroundColor: colors.green }]}
-                          onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
-                        >
+                        <View style={[styles.startBtn, { backgroundColor: colors.green }]}>
                           <Text style={styles.startBtnText}>Start Learning ▷</Text>
-                        </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </ScrollView>
                 <View style={styles.dotsRow}>
@@ -303,7 +335,11 @@ export default function CoursesScreen({ navigation, route }) {
                       key={i}
                       style={[
                         styles.dot,
-                        { backgroundColor: i === featuredIndex ? colors.green : colors.border }
+                        {
+                          backgroundColor: i === featuredIndex
+                            ? colors.green
+                            : colors.border,
+                        }
                       ]}
                     />
                   ))}
@@ -312,112 +348,143 @@ export default function CoursesScreen({ navigation, route }) {
             )}
 
             {/* Popular Courses */}
-            <AnimatedCard delay={200}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionTitle, { color: colors.white }]}>
-                  🔥 Popular Courses
-                </Text>
-                <TouchableOpacity>
-                  <Text style={[styles.viewAll, { color: colors.green }]}>View all →</Text>
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.popularScroll}>
-                {popular.map((course, i) => (
-                  <TouchableOpacity
-                    key={course.id}
-                    style={[styles.popularCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                    onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
-                  >
-                    <View style={[styles.popularThumb, { backgroundColor: colors.bg2 }]}>
-                      <Text style={styles.popularThumbIcon}>{course.category_icon || '📘'}</Text>
-                      <TouchableOpacity style={[styles.bookmarkBtn, { backgroundColor: 'rgba(0,0,0,0.4)' }]}>
-                        <Text style={styles.bookmarkIcon}>🔖</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.popularTitle, { color: colors.white }]} numberOfLines={2}>
-                      {course.title}
+            {popular.length > 0 && (
+              <AnimatedCard delay={200}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[styles.sectionTitle, { color: colors.white }]}>
+                    🔥 Popular Courses
+                  </Text>
+                  <TouchableOpacity>
+                    <Text style={[styles.viewAll, { color: colors.green }]}>
+                      View all →
                     </Text>
-                    <Text style={[styles.popularDesc, { color: colors.textDim }]} numberOfLines={1}>
-                      {course.description}
-                    </Text>
-                    <View style={styles.popularBottomRow}>
-                      <Text style={[styles.popularLessons, { color: colors.textDim }]}>
-                        {course.lessons_count || 18} Lessons
-                      </Text>
-                      <View style={[styles.smallTokenPill, { borderColor: colors.green }]}>
-                        <Text style={[styles.smallTokenText, { color: colors.green }]}>
-                          {course.token_cost} Tokens
-                        </Text>
-                      </View>
-                    </View>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </AnimatedCard>
+                </View>
 
-            {/* Learning Paths */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.popularScroll}
+                >
+                  {popular.map((course) => (
+                    <TouchableOpacity
+                      key={course.id}
+                      style={[styles.popularCard, {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      }]}
+                      onPress={() => openCourse(course.id)}
+                    >
+                      <View style={[styles.popularThumb, { backgroundColor: colors.bg2 }]}>
+                        <Text style={styles.popularThumbIcon}>
+                          {course.category_icon || '📘'}
+                        </Text>
+                        <TouchableOpacity style={styles.bookmarkBtn}>
+                          <Text style={styles.bookmarkIcon}>🔖</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.popularContent}>
+                        <Text
+                          style={[styles.popularTitle, { color: colors.white }]}
+                          numberOfLines={2}
+                        >
+                          {course.title}
+                        </Text>
+                        <Text
+                          style={[styles.popularDesc, { color: colors.textDim }]}
+                          numberOfLines={1}
+                        >
+                          {course.description}
+                        </Text>
+                        <View style={styles.popularBottomRow}>
+                          <Text style={[styles.popularLessons, { color: colors.textDim }]}>
+                            {course.lessons_count || 0} Lessons
+                          </Text>
+                          <View style={[styles.smallTokenPill, { borderColor: colors.green }]}>
+                            <Text style={[styles.smallTokenText, { color: colors.green }]}>
+                              {course.token_cost} Tokens
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </AnimatedCard>
+            )}
+
+            {/* Learning Path placeholder */}
             <AnimatedCard delay={250}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={[styles.sectionTitle, { color: colors.white }]}>
                   🗺️ Learning Paths
                 </Text>
                 <TouchableOpacity>
-                  <Text style={[styles.viewAll, { color: colors.green }]}>View all →</Text>
+                  <Text style={[styles.viewAll, { color: colors.green }]}>
+                    View all →
+                  </Text>
                 </TouchableOpacity>
               </View>
 
-              <View style={[styles.pathCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={styles.pathStepCol}>
-                  <View style={[styles.pathStepDot, { backgroundColor: colors.green }]}>
-                    <Text style={styles.pathStepCheck}>✓</Text>
-                  </View>
-                  <View style={[styles.pathStepDotLocked, { borderColor: colors.border }]}>
-                    <Text style={styles.pathStepLock}>🔒</Text>
-                  </View>
-                  <View style={[styles.pathStepDotLocked, { borderColor: colors.border }]}>
-                    <Text style={styles.pathStepLock}>🔒</Text>
-                  </View>
-                </View>
-                <View style={[styles.pathThumb, { backgroundColor: colors.surfaceGreen, borderColor: colors.green }]}>
+              <View style={[styles.pathCard, {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              }]}>
+                <View style={[styles.pathThumb, {
+                  backgroundColor: colors.surfaceGreen,
+                  borderColor: colors.green,
+                }]}>
                   <Text style={styles.pathThumbIcon}>🛡️</Text>
-                  <Text style={styles.pathThumbCheck}>✓</Text>
                 </View>
                 <View style={styles.pathInfo}>
                   <View style={styles.pathTitleRow}>
-                    <Text style={[styles.pathTitle, { color: colors.white }]}>Cyber Security Roadmap</Text>
+                    <Text style={[styles.pathTitle, { color: colors.white }]}>
+                      Tech Career Roadmap
+                    </Text>
                     <View style={[styles.beginnerBadge, { backgroundColor: colors.green }]}>
                       <Text style={styles.beginnerText}>Beginner</Text>
                     </View>
                   </View>
-                  <Text style={[styles.pathDesc, { color: colors.textDim }]} numberOfLines={2}>
-                    Step-by-step path to becoming a cyber security professional.
+                  <Text style={[styles.pathDesc, { color: colors.textDim }]}>
+                    Step-by-step path from zero to tech professional.
                   </Text>
-                  <View style={styles.pathProgressRow}>
-                    <View style={styles.progressBarTrack}>
-                      <View style={[styles.progressBarFill, { backgroundColor: colors.green, width: '25%' }]} />
-                    </View>
+                  <View style={[styles.pathProgressTrack, {
+                    backgroundColor: colors.border,
+                  }]}>
+                    <View style={[styles.pathProgressFill, {
+                      backgroundColor: colors.green, width: '25%',
+                    }]} />
                   </View>
                   <View style={styles.pathBottomRow}>
-                    <Text style={[styles.pathPercent, { color: colors.green }]}>25% Completed</Text>
-                    <Text style={[styles.pathCount, { color: colors.textDim }]}>4/16 Courses</Text>
+                    <Text style={[styles.pathPercent, { color: colors.green }]}>
+                      25% Completed
+                    </Text>
+                    <Text style={[styles.pathCount, { color: colors.textDim }]}>
+                      {allCourses.length} Courses
+                    </Text>
                   </View>
                 </View>
               </View>
 
-              <TouchableOpacity style={[styles.continuePathBtn, { borderColor: colors.green }]}>
-                <Text style={[styles.continuePathText, { color: colors.green }]}>Continue Path →</Text>
+              <TouchableOpacity style={[styles.continuePathBtn, {
+                borderColor: colors.green,
+              }]}>
+                <Text style={[styles.continuePathText, { color: colors.green }]}>
+                  Continue Path →
+                </Text>
               </TouchableOpacity>
             </AnimatedCard>
 
-            {/* Trending Courses */}
+            {/* Trending / All Courses */}
             <AnimatedCard delay={300}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={[styles.sectionTitle, { color: colors.white }]}>
                   📈 Trending Courses 🔥
                 </Text>
                 <TouchableOpacity>
-                  <Text style={[styles.viewAll, { color: colors.green }]}>View all →</Text>
+                  <Text style={[styles.viewAll, { color: colors.green }]}>
+                    View all →
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -425,21 +492,33 @@ export default function CoursesScreen({ navigation, route }) {
                 filteredCourses.map((course) => (
                   <TouchableOpacity
                     key={course.id}
-                    style={[styles.trendingRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                    onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                    style={[styles.trendingRow, {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    }]}
+                    onPress={() => openCourse(course.id)}
                   >
                     <View style={[styles.trendingThumb, { backgroundColor: colors.bg2 }]}>
-                      <Text style={styles.trendingThumbIcon}>{course.category_icon || '📘'}</Text>
+                      <Text style={styles.trendingThumbIcon}>
+                        {course.category_icon || '📘'}
+                      </Text>
                     </View>
                     <View style={styles.trendingInfo}>
-                      <Text style={[styles.trendingTitle, { color: colors.white }]} numberOfLines={1}>
+                      <Text
+                        style={[styles.trendingTitle, { color: colors.white }]}
+                        numberOfLines={1}
+                      >
                         {course.title}
                       </Text>
-                      <Text style={[styles.trendingDesc, { color: colors.textDim }]} numberOfLines={1}>
+                      <Text
+                        style={[styles.trendingDesc, { color: colors.textDim }]}
+                        numberOfLines={1}
+                      >
                         {course.description}
                       </Text>
                       <Text style={[styles.trendingMeta, { color: colors.textDim }]}>
-                        ⭐ {course.rating} ({course.learners_count} learners)  ·  🕐 {course.duration_hours || 5} Hours  ·  {course.lessons_count || 20} Lessons
+                        ⭐ {course.rating} ({course.learners_count} learners)
+                        {course.lessons_count ? `  ·  ${course.lessons_count} Lessons` : ''}
                       </Text>
                     </View>
                     <View style={[styles.tokenBadge, { borderColor: colors.green }]}>
@@ -462,7 +541,9 @@ export default function CoursesScreen({ navigation, route }) {
 
           </ScrollView>
         </View>
-
+      )}
+    </AppScreenContainer>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -479,7 +560,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, alignItems: 'center', justifyContent: 'center',
     position: 'relative',
   },
-  iconBtnText: { fontSize: 18 },
+  iconBtnText: { fontSize: 18, color: '#fff' },
   headerCenter: { flex: 1 },
   headerTitle: { fontSize: 20, fontWeight: '900', letterSpacing: 1 },
   headerSub: { fontSize: 12, marginTop: 2 },
@@ -514,9 +595,9 @@ const styles = StyleSheet.create({
   },
   pillIcon: { fontSize: 12 },
   pillText: { fontSize: 12, fontWeight: '700' },
-  featuredScroll: { marginBottom: 8 },
+  featuredScroll: { marginHorizontal: 16, marginBottom: 8 },
   featuredCard: {
-    marginHorizontal: 16, borderWidth: 1, borderRadius: 18, padding: 18,
+    borderWidth: 1, borderRadius: 18, padding: 18,
   },
   featuredBadge: {
     alignSelf: 'flex-start', borderWidth: 1, borderRadius: 8,
@@ -534,12 +615,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6,
   },
   tokenPillText: { fontSize: 12, fontWeight: '700' },
-  startBtn: {
-    borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10,
-  },
+  startBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
   startBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   dotsRow: {
-    flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12, marginBottom: 16,
+    flexDirection: 'row', justifyContent: 'center', gap: 6,
+    marginTop: 12, marginBottom: 16,
   },
   dot: { width: 7, height: 7, borderRadius: 4 },
   sectionHeaderRow: {
@@ -550,64 +630,47 @@ const styles = StyleSheet.create({
   viewAll: { fontSize: 12, fontWeight: '700' },
   popularScroll: { paddingLeft: 16, marginBottom: 24 },
   popularCard: {
-    width: 160, borderWidth: 1, borderRadius: 14, marginRight: 12, overflow: 'hidden', paddingBottom: 10,
+    width: 160, borderWidth: 1, borderRadius: 14,
+    marginRight: 12, overflow: 'hidden',
   },
   popularThumb: {
-    height: 100, alignItems: 'center', justifyContent: 'center', position: 'relative',
+    height: 100, alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
   },
   popularThumbIcon: { fontSize: 30 },
   bookmarkBtn: {
     position: 'absolute', top: 8, right: 8,
-    width: 26, height: 26, borderRadius: 8,
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)', width: 26, height: 26,
+    borderRadius: 8, alignItems: 'center', justifyContent: 'center',
   },
   bookmarkIcon: { fontSize: 12 },
-  popularTitle: {
-    fontSize: 13, fontWeight: '700', paddingHorizontal: 10, marginTop: 8, lineHeight: 17,
-  },
-  popularDesc: { fontSize: 10, paddingHorizontal: 10, marginTop: 2 },
+  popularContent: { padding: 10 },
+  popularTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4, lineHeight: 17 },
+  popularDesc: { fontSize: 10, marginBottom: 8 },
   popularBottomRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 10, marginTop: 8,
   },
   popularLessons: { fontSize: 10 },
-  smallTokenPill: {
-    borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
-  },
+  smallTokenPill: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   smallTokenText: { fontSize: 10, fontWeight: '700' },
   pathCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginHorizontal: 16, borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12,
+    marginHorizontal: 16, borderWidth: 1, borderRadius: 16,
+    padding: 14, marginBottom: 12,
   },
-  pathStepCol: { gap: 10, alignItems: 'center' },
-  pathStepDot: {
-    width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center',
-  },
-  pathStepCheck: { color: '#000', fontSize: 10, fontWeight: '900' },
-  pathStepDotLocked: {
-    width: 18, height: 18, borderRadius: 9, borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pathStepLock: { fontSize: 8 },
   pathThumb: {
     width: 60, height: 60, borderRadius: 14, borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center', position: 'relative',
+    alignItems: 'center', justifyContent: 'center',
   },
   pathThumbIcon: { fontSize: 26 },
-  pathThumbCheck: {
-    position: 'absolute', bottom: -4, right: -4, fontSize: 14,
-  },
   pathInfo: { flex: 1 },
   pathTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   pathTitle: { fontSize: 14, fontWeight: '800' },
   beginnerBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   beginnerText: { color: '#000', fontSize: 9, fontWeight: '800' },
   pathDesc: { fontSize: 11, lineHeight: 16, marginBottom: 8 },
-  pathProgressRow: { marginBottom: 6 },
-  progressBarTrack: {
-    height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden',
-  },
-  progressBarFill: { height: 5, borderRadius: 3 },
+  pathProgressTrack: { height: 5, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
+  pathProgressFill: { height: 5, borderRadius: 3 },
   pathBottomRow: { flexDirection: 'row', justifyContent: 'space-between' },
   pathPercent: { fontSize: 11, fontWeight: '700' },
   pathCount: { fontSize: 11 },
@@ -630,6 +693,8 @@ const styles = StyleSheet.create({
   trendingMeta: { fontSize: 10, marginTop: 4 },
   tokenBadge: { borderWidth: 1, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 10 },
   tokenBadgeText: { fontSize: 11, fontWeight: '700' },
-  noResults: { textAlign: 'center', fontSize: 13, marginTop: 20 },
-  footer: { textAlign: 'center', fontSize: 11, marginVertical: 24, fontFamily: 'monospace' },
+  noResults: { textAlign: 'center', fontSize: 13, marginTop: 20, marginBottom: 20 },
+  footer: {
+    textAlign: 'center', fontSize: 11, marginVertical: 24, fontFamily: 'monospace',
+  },
 });
