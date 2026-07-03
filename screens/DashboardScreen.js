@@ -8,7 +8,6 @@ import AppScreenContainer from '../components/AppScreenContainer';
 import SideDrawer from '../components/SideDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
-import FloatingAIButton from '../components/FloatingAIButton';
 
 const CATEGORY_FALLBACK_COLORS = ['#00cc44', '#7b3fe4', '#bb0000', '#ffb800'];
 
@@ -455,13 +454,7 @@ return (
               Developed by: 💞🙏 Engineer Joe 🇰🇪
             </Text>
           </ScrollView>
-    
-          <FloatingAIButton onPress={() => navigation.navigate('QA')} />
-                  </View>
-                )}
-              </AppScreenContainer>
-            );
-          }
+
 
 
 const styles = StyleSheet.create({

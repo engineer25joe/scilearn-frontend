@@ -6,7 +6,6 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import AppScreenContainer from '../components/AppScreenContainer';
-import FloatingAIButton from '../components/FloatingAIButton';
 
 const { width } = Dimensions.get('window');
 
@@ -463,9 +462,6 @@ export default function CoursesScreen({ navigation, route }) {
 
           </ScrollView>
 
-          <FloatingAIButton onPress={() => navigation.navigate('QA')} />
-        </View>
-      )}
     </AppScreenContainer>
   );
 }
