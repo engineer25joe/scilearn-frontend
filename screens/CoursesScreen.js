@@ -461,6 +461,7 @@ export default function CoursesScreen({ navigation, route }) {
             </Text>
 
           </ScrollView>
+        </View>
 
     </AppScreenContainer>
   );
