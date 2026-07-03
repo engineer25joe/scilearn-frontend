@@ -463,7 +463,6 @@ export default function CoursesScreen({ navigation, route }) {
           </ScrollView>
         </View>
 
-  );
 }
 
 const styles = StyleSheet.create({
