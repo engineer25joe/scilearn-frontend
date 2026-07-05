@@ -2,14 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Platform, ActivityIndicator,
-  Animated, Image
+  Animated
 } from 'react-native';
-import AppScreenContainer from '../components/AppScreenContainer';
-import SideDrawer from '../components/SideDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
-
-const CATEGORY_FALLBACK_COLORS = ['#00cc44', '#7b3fe4', '#bb0000', '#ffb800'];
+import Avatar from '../components/Avatar';
+import AppScreenContainer from '../components/AppScreenContainer';
 
 function AnimatedCard({ children, style, delay = 0 }) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -42,7 +40,6 @@ export default function DashboardScreen({ navigation }) {
   const [lastWatched, setLastWatched] = useState(null);
   const [categories, setCategories] = useState([]);
   const [trendingCourses, setTrendingCourses] = useState([]);
-  const [drawerVisible, setDrawerVisible] = useState(false);
 
   const getUserData = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('scibase_user');
@@ -100,9 +97,7 @@ export default function DashboardScreen({ navigation }) {
         { headers: { 'X-Username': username } }
       );
       const data = await res.json();
-      if (res.ok && data.has_last_watched) {
-        setLastWatched(data);
-      }
+      if (res.ok && data.has_last_watched) setLastWatched(data);
     } catch {}
   };
 
@@ -175,14 +170,17 @@ export default function DashboardScreen({ navigation }) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.bg }]}>
         <ActivityIndicator color={colors.green} size="large" />
-        <Text style={[styles.loadingText, { color: colors.green }]}>
-          LOADING...
-        </Text>
+        <Text style={[styles.loadingText, { color: colors.green }]}>LOADING...</Text>
       </View>
     );
   }
-return (
-    <AppScreenContainer navigation={navigation} user={user} style={{ backgroundColor: colors.bg }}>
+
+  return (
+    <AppScreenContainer
+      navigation={navigation}
+      user={user}
+      style={{ backgroundColor: colors.bg }}
+    >
       {({ openDrawer }) => (
         <View style={[styles.root, { backgroundColor: colors.bg }]}>
           <ScrollView
@@ -195,7 +193,10 @@ return (
             <AnimatedCard>
               <View style={styles.header}>
                 <TouchableOpacity
-                  style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  style={[styles.iconBtn, {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  }]}
                   onPress={openDrawer}
                 >
                   <Text style={styles.iconBtnText}>☰</Text>
@@ -203,22 +204,31 @@ return (
 
                 <View style={styles.headerCenter}>
                   <Text style={[styles.welcomeText, { color: colors.text }]}>
-                    Welcome to <Text style={{ color: colors.green, fontWeight: '900' }}>SCI LEARN</Text> 👋
+                    Welcome to{' '}
+                    <Text style={{ color: colors.green, fontWeight: '900' }}>
+                      SCI LEARN
+                    </Text>{' '}👋
                   </Text>
                   <Text style={[styles.helloText, { color: colors.white }]}>
                     Hello, {user?.first_name || user?.username || 'Engineer'}
                   </Text>
                 </View>
-    
+
                 <View style={styles.headerRight}>
                   <TouchableOpacity
-                    style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    style={[styles.iconBtn, {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    }]}
                     onPress={() => navigation.navigate('Courses')}
                   >
                     <Text style={styles.iconBtnText}>🔍</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    style={[styles.iconBtn, {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    }]}
                     onPress={() => navigation.navigate('Notifications')}
                   >
                     <Text style={styles.iconBtnText}>🔔</Text>
@@ -233,7 +243,7 @@ return (
                 </View>
               </View>
             </AnimatedCard>
-    
+
             {/* Streak Card */}
             <AnimatedCard delay={100}>
               <View style={[styles.streakCard, {
@@ -249,15 +259,23 @@ return (
                       Keep it up! 🔥
                     </Text>
                     <Text style={[styles.streakSubtitle, { color: colors.textDim }]}>
-                      You're on a <Text style={{ color: colors.green, fontWeight: '700' }}>{streakDays} day</Text> learning streak
+                      You're on a{' '}
+                      <Text style={{ color: colors.green, fontWeight: '700' }}>
+                        {streakDays} day
+                      </Text>
+                      {' '}learning streak
                     </Text>
                   </View>
                   <View style={styles.streakCountBox}>
-                    <Text style={[styles.streakCount, { color: colors.green }]}>{streakDays}</Text>
-                    <Text style={[styles.streakCountLabel, { color: colors.textDim }]}>Day Streak</Text>
+                    <Text style={[styles.streakCount, { color: colors.green }]}>
+                      {streakDays}
+                    </Text>
+                    <Text style={[styles.streakCountLabel, { color: colors.textDim }]}>
+                      Day Streak
+                    </Text>
                   </View>
                 </View>
-    
+
                 <View style={styles.streakDotsRow}>
                   {Array.from({ length: streakDotsCount }).map((_, i) => {
                     const isFilled = i < filledDots;
@@ -270,7 +288,9 @@ return (
                             borderColor: isFilled ? colors.green : colors.border,
                           }
                         ]}>
-                          {isFilled && <Text style={styles.streakDotCheck}>✓</Text>}
+                          {isFilled && (
+                            <Text style={styles.streakDotCheck}>✓</Text>
+                          )}
                         </View>
                         {i < streakDotsCount - 1 && (
                           <View style={[
@@ -284,7 +304,7 @@ return (
                 </View>
               </View>
             </AnimatedCard>
-    
+
             {/* Resume Learning */}
             {lastWatched && (
               <AnimatedCard delay={200}>
@@ -297,7 +317,10 @@ return (
                   activeOpacity={0.85}
                 >
                   <View style={[styles.resumeThumb, { backgroundColor: colors.bg2 }]}>
-                    <View style={[styles.playCircle, { backgroundColor: 'rgba(0,0,0,0.5)', borderColor: colors.green }]}>
+                    <View style={[styles.playCircle, {
+                      backgroundColor: 'rgba(0,0,0,0.5)',
+                      borderColor: colors.green,
+                    }]}>
                       <Text style={styles.playIcon}>▶️</Text>
                     </View>
                   </View>
@@ -305,10 +328,16 @@ return (
                     <Text style={[styles.resumeLabel, { color: colors.green }]}>
                       Resume Learning
                     </Text>
-                    <Text style={[styles.resumeCourseTitle, { color: colors.white }]} numberOfLines={1}>
+                    <Text
+                      style={[styles.resumeCourseTitle, { color: colors.white }]}
+                      numberOfLines={1}
+                    >
                       {lastWatched.course_title}
                     </Text>
-                    <Text style={[styles.resumeLessonTitle, { color: colors.textDim }]} numberOfLines={1}>
+                    <Text
+                      style={[styles.resumeLessonTitle, { color: colors.textDim }]}
+                      numberOfLines={1}
+                    >
                       {lastWatched.lesson_title}
                     </Text>
                     <View style={styles.progressBarTrack}>
@@ -316,7 +345,7 @@ return (
                         styles.progressBarFill,
                         {
                           backgroundColor: colors.green,
-                          width: `${lastWatched.progress_percent || 0}%`,
+                          width: (lastWatched.progress_percent || 0) + '%',
                         }
                       ]} />
                     </View>
@@ -332,23 +361,25 @@ return (
                 </TouchableOpacity>
               </AnimatedCard>
             )}
-    
+
             {/* Courses (Categories) */}
             <AnimatedCard delay={300}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionTitle, { color: colors.white }]}>Courses</Text>
+                <Text style={[styles.sectionTitle, { color: colors.white }]}>
+                  Courses
+                </Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
                   <Text style={[styles.viewAll, { color: colors.green }]}>View all</Text>
                 </TouchableOpacity>
               </View>
-    
+
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.categoryScroll}
               >
                 {categories.length > 0 ? (
-                  categories.map((cat, i) => (
+                  categories.map((cat) => (
                     <TouchableOpacity
                       key={cat.id}
                       style={[styles.categoryCard, {
@@ -357,11 +388,19 @@ return (
                       }]}
                       onPress={() => navigation.navigate('Courses', { categoryId: cat.id })}
                     >
-                      <View style={[styles.categoryIconBox, { backgroundColor: cat.color + '22', borderColor: cat.color }]}>
+                      <View style={[styles.categoryIconBox, {
+                        backgroundColor: cat.color + '22',
+                        borderColor: cat.color,
+                      }]}>
                         <Text style={styles.categoryIcon}>{cat.icon}</Text>
                       </View>
-                      <Text style={[styles.categoryName, { color: colors.white }]}>{cat.name}</Text>
-                      <Text style={[styles.categoryDesc, { color: colors.textDim }]} numberOfLines={1}>
+                      <Text style={[styles.categoryName, { color: colors.white }]}>
+                        {cat.name}
+                      </Text>
+                      <Text
+                        style={[styles.categoryDesc, { color: colors.textDim }]}
+                        numberOfLines={1}
+                      >
                         {cat.description}
                       </Text>
                       <Text style={[styles.categoryCount, { color: cat.color }]}>
@@ -381,7 +420,7 @@ return (
                   </View>
                 )}
               </ScrollView>
-    
+
               <TouchableOpacity
                 style={[styles.viewAllCoursesBtn, { borderColor: colors.green }]}
                 onPress={() => navigation.navigate('Courses')}
@@ -391,18 +430,20 @@ return (
                 </Text>
               </TouchableOpacity>
             </AnimatedCard>
-    
+
             {/* Trending Courses */}
             <AnimatedCard delay={400}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionTitle, { color: colors.white }]}>Trending Courses 🔥</Text>
+                <Text style={[styles.sectionTitle, { color: colors.white }]}>
+                  Trending Courses 🔥
+                </Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Courses')}>
                   <Text style={[styles.viewAll, { color: colors.green }]}>View all</Text>
                 </TouchableOpacity>
               </View>
-    
+
               {trendingCourses.length > 0 ? (
-                trendingCourses.map((course, i) => (
+                trendingCourses.map((course) => (
                   <TouchableOpacity
                     key={course.id}
                     style={[styles.trendingRow, {
@@ -412,7 +453,7 @@ return (
                     onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
                   >
                     <View style={[styles.trendingThumb, {
-                      backgroundColor: (CATEGORY_FALLBACK_COLORS[i % 4]) + '22',
+                      backgroundColor: colors.bg2,
                     }]}>
                       <Text style={styles.trendingThumbIcon}>
                         {course.category_icon || '📘'}
@@ -426,10 +467,16 @@ return (
                           </Text>
                         </View>
                       )}
-                      <Text style={[styles.trendingTitle, { color: colors.white }]} numberOfLines={1}>
+                      <Text
+                        style={[styles.trendingTitle, { color: colors.white }]}
+                        numberOfLines={1}
+                      >
                         {course.title}
                       </Text>
-                      <Text style={[styles.trendingDesc, { color: colors.textDim }]} numberOfLines={1}>
+                      <Text
+                        style={[styles.trendingDesc, { color: colors.textDim }]}
+                        numberOfLines={1}
+                      >
                         {course.description}
                       </Text>
                       <Text style={[styles.trendingRating, { color: colors.amber }]}>
@@ -449,13 +496,16 @@ return (
                 </Text>
               )}
             </AnimatedCard>
-    
+
             <Text style={[styles.footer, { color: colors.textDim }]}>
               Developed by: 💞🙏 Engineer Joe 🇰🇪
             </Text>
           </ScrollView>
-
-
+        </View>
+      )}
+    </AppScreenContainer>
+  );
+}
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -467,150 +517,21 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace', marginTop: 16, letterSpacing: 3,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 16,
-    gap: 10,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingTop: 50, paddingBottom: 16, gap: 10,
   },
   iconBtn: {
-    width: 44, height: 44, borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-    position: 'relative',
+    width: 44, height: 44, borderRadius: 12, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', position: 'relative',
   },
-  iconBtnText: { fontSize: 18 },
+  iconBtnText: { fontSize: 18, color: '#fff' },
   headerCenter: { flex: 1 },
-  welcomeText: {
-    fontSize: 13, fontFamily: 'System',
-  },
-  helloText: {
-    fontSize: 20, fontWeight: '800', marginTop: 2,
-  },
-  headerRight: {
-    flexDirection: 'row', gap: 8,
-  },
+  welcomeText: { fontSize: 13 },
+  helloText: { fontSize: 20, fontWeight: '800', marginTop: 2 },
+  headerRight: { flexDirection: 'row', gap: 8 },
   bellBadge: {
     position: 'absolute', top: -4, right: -4,
     minWidth: 18, height: 18, borderRadius: 9,
-    alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 4,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
   },
-  bellBadgeText: {
-    color: '#000', fontSize: 9, fontWeight: '900',
-  },
-  streakCard: {
-    marginHorizontal: 16, marginBottom: 16,
-    borderWidth: 1, borderRadius: 16, padding: 18,
-  },
-  streakTop: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-  },
-  streakIconRing: {
-    width: 56, height: 56, borderRadius: 28,
-    borderWidth: 2, alignItems: 'center', justifyContent: 'center',
-  },
-  streakFireIcon: { fontSize: 26 },
-  streakInfo: { flex: 1 },
-  streakTitle: { fontSize: 15, fontWeight: '700' },
-  streakSubtitle: { fontSize: 12, marginTop: 4 },
-  streakCountBox: { alignItems: 'center' },
-  streakCount: { fontSize: 28, fontWeight: '900' },
-  streakCountLabel: { fontSize: 9, marginTop: -2 },
-  streakDotsRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginTop: 18,
-  },
-  streakDot: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2, alignItems: 'center', justifyContent: 'center',
-  },
-  streakDotCheck: { color: '#000', fontSize: 11, fontWeight: '900' },
-  streakLine: { flex: 1, height: 2, marginHorizontal: 2 },
-  resumeCard: {
-    flexDirection: 'row', marginHorizontal: 16, marginBottom: 20,
-    borderWidth: 1, borderRadius: 16, padding: 12, gap: 12,
-    alignItems: 'center',
-  },
-  resumeThumb: {
-    width: 88, height: 72, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-  },
-  playCircle: {
-    width: 36, height: 36, borderRadius: 18,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  playIcon: { fontSize: 14 },
-  resumeInfo: { flex: 1 },
-  resumeLabel: { fontSize: 11, fontWeight: '700' },
-  resumeCourseTitle: { fontSize: 15, fontWeight: '800', marginTop: 2 },
-  resumeLessonTitle: { fontSize: 12, marginTop: 2, marginBottom: 6 },
-  progressBarTrack: {
-    height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
-  progressBarFill: { height: 4, borderRadius: 2 },
-  progressLabel: { fontSize: 10, marginTop: 4, fontWeight: '700' },
-  continueBtn: {
-    borderWidth: 1, borderRadius: 10,
-    paddingVertical: 8, paddingHorizontal: 12,
-  },
-  continueBtnText: { fontSize: 12, fontWeight: '700' },
-  sectionHeaderRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingHorizontal: 16, marginBottom: 12,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: '800' },
-  viewAll: { fontSize: 13, fontWeight: '700' },
-  categoryScroll: { paddingLeft: 16, marginBottom: 14 },
-  categoryCard: {
-    width: 160, borderWidth: 1, borderRadius: 16,
-    padding: 14, marginRight: 12,
-  },
-  categoryIconBox: {
-    width: 40, height: 40, borderRadius: 12,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-    marginBottom: 10,
-  },
-  categoryIcon: { fontSize: 18 },
-  categoryName: { fontSize: 14, fontWeight: '800', marginBottom: 4 },
-  categoryDesc: { fontSize: 11, marginBottom: 10 },
-  categoryCount: { fontSize: 12, fontWeight: '700' },
-  viewAllCoursesBtn: {
-    marginHorizontal: 16, borderWidth: 1, borderRadius: 12,
-    padding: 14, alignItems: 'center', marginBottom: 24,
-  },
-  viewAllCoursesText: { fontSize: 13, fontWeight: '700' },
-  trendingRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginHorizontal: 16, marginBottom: 12,
-    borderWidth: 1, borderRadius: 14, padding: 12,
-  },
-  trendingThumb: {
-    width: 52, height: 52, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  trendingThumbIcon: { fontSize: 22 },
-  trendingInfo: { flex: 1 },
-  bestsellerBadge: {
-    alignSelf: 'flex-start', borderWidth: 1, borderRadius: 6,
-    paddingHorizontal: 6, paddingVertical: 2, marginBottom: 4,
-  },
-  bestsellerText: { fontSize: 9, fontWeight: '700' },
-  trendingTitle: { fontSize: 13, fontWeight: '700' },
-  trendingDesc: { fontSize: 11, marginTop: 2 },
-  trendingRating: { fontSize: 11, marginTop: 4, fontWeight: '600' },
-  tokenBadge: {
-    borderWidth: 1, borderRadius: 10,
-    paddingVertical: 6, paddingHorizontal: 10,
-  },
-  tokenBadgeText: { fontSize: 11, fontWeight: '700' },
-  noResults: {
-    textAlign: 'center', fontSize: 13, marginTop: 20,
-  },
-  footer: {
-    textAlign: 'center', fontSize: 11,
-    marginVertical: 24, fontFamily: 'monospace',
-  },
-});
+  bellBadge
