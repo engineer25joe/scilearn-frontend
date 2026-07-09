@@ -197,6 +197,12 @@ export default function SideDrawer({ visible, onClose, navigation, user }) {
               onPress={() => goTo('Courses')}
             />
             <DrawerItem
+              icon="🏆" iconBg="#1f1606"
+              label="My Certificates"
+              colors={colors}
+              onPress={() => goTo('Certificates')}
+            />
+            <DrawerItem
               icon="🎁"
               label="Referral"
               colors={colors}

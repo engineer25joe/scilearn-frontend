@@ -439,6 +439,12 @@ export default function ProfileScreen({ navigation }) {
             onPress={openSecurityModal}
           />
           <MenuItem
+            icon="🏆" iconBg="#1f1606"
+            title="My Certificates"
+            sub="View and download your earned certificates"
+            onPress={() => navigation.navigate('Certificates')}
+          />
+          <MenuItem
             icon="🔔" iconBg="#211233"
             title="Notifications"
             sub="Manage your notification preferences"

@@ -45,6 +45,7 @@ export default function RootLayout() {
         <Stack.Screen name="lesson" options={{ headerShown: false }} />
         <Stack.Screen name="otp" options={{ headerShown: false }} />
         <Stack.Screen name="theme" options={{ headerShown: false }} />
+        <Stack.Screen name="certificates" options={{ headerShown: false }} />
         <Stack.Screen name="coursedetail" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
